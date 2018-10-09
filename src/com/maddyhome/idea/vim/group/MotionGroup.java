@@ -1845,6 +1845,13 @@ public class MotionGroup {
       try {
         final com.intellij.openapi.util.TextRange newRange = selectionEvent.getNewRange();
         for (Editor e : EditorFactory.getInstance().getEditors(document)) {
+          //region sync vim selection
+          if (!newRange.isEmpty()) {
+            if (CommandState.getInstance(editor).getMode() != CommandState.Mode.VISUAL) {
+              VimPlugin.getMotion().setVisualMode(editor, CommandState.SubMode.VISUAL_CHARACTER);
+            }
+          }
+          //endregion
           if (!e.equals(editor)) {
             e.getSelectionModel().setSelection(newRange.getStartOffset(), newRange.getEndOffset());
           }
