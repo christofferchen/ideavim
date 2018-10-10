@@ -57,6 +57,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.util.Arrays;
 
 /**
  * This handles all motion related commands and marks
@@ -1844,12 +1845,14 @@ public class MotionGroup {
       myMakingChanges = true;
       try {
         final com.intellij.openapi.util.TextRange newRange = selectionEvent.getNewRange();
+        // Fix selection problems caused by multiple-cursors
+        if (Arrays.stream(selectionEvent.getNewRanges()).allMatch(r -> r.isEmpty())) {
+          return;
+        }
         for (Editor e : EditorFactory.getInstance().getEditors(document)) {
           //region sync vim selection
-          if (!newRange.isEmpty()) {
-            if (CommandState.getInstance(editor).getMode() != CommandState.Mode.VISUAL) {
-              VimPlugin.getMotion().setVisualMode(editor, CommandState.SubMode.VISUAL_CHARACTER);
-            }
+          if (CommandState.getInstance(editor).getMode() != CommandState.Mode.VISUAL) {
+            VimPlugin.getMotion().setVisualMode(editor, CommandState.SubMode.VISUAL_CHARACTER);
           }
           //endregion
           if (!e.equals(editor)) {
