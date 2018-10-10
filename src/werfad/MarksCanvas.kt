@@ -40,13 +40,15 @@ class MarksCanvas : JComponent() {
 
         mSortedMarks.forEach {
             g2d.color = Color(config.bgColor)
-            g2d.fillRect(it.markStart!!.x - x, it.markStart!!.y - y,
+            // Fix the problem of the Y coordinate upwards
+            val adjustToCenter = (mEditor.lineHeight - it.strBounds!!.height) / 2
+            g2d.fillRect(it.markStart!!.x - x, it.markStart!!.y - y + adjustToCenter,
                     it.strBounds!!.width, it.strBounds!!.height)
 
             g2d.font = mFont
             g2d.color = Color(config.fontColor)
             g2d.drawString(it.keyTag, it.markStart!!.x - x,
-                    it.markStart!!.y - y + it.strBounds!!.height - mFontMetrics.descent)
+                    it.markStart!!.y - y + it.strBounds!!.height - mFontMetrics.descent + adjustToCenter)
         }
 
         super.paint(g)
