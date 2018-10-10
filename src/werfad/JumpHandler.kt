@@ -7,6 +7,8 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.actionSystem.EditorActionHandler
 import com.intellij.openapi.editor.actionSystem.EditorActionManager
 import com.intellij.openapi.editor.actionSystem.TypedActionHandler
+import com.maddyhome.idea.vim.VimPlugin
+import com.maddyhome.idea.vim.group.MotionGroup
 import com.werfad.finder.*
 import com.werfad.utils.getVisibleRangeOffset
 
@@ -49,7 +51,9 @@ object JumpHandler : TypedActionHandler {
             }
             marks.size == 1 -> {
                 // only one found, just jump to it
-                e.caretModel.moveToOffset(marks[0].offset)
+//                e.caretModel.moveToOffset(marks[0].offset)
+                // work better with ideavim visual mode
+                MotionGroup.moveCaret(e, e.caretModel.currentCaret, VimPlugin.getMotion().moveCaretToNthCharacter(e, marks[0].offset))
                 stop()
             }
             else -> {
