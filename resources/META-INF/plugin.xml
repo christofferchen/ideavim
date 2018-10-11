@@ -90,6 +90,7 @@
     <vimExtension implementation="com.maddyhome.idea.vim.extension.multiplecursors.VimMultipleCursorsExtension"/>
     <vimExtension implementation="com.maddyhome.idea.vim.extension.commentary.CommentaryExtension"/>
     <vimExtension implementation="com.maddyhome.idea.vim.extension.easymotion.VimEasyMotionExtension"/>
+    <vimExtension implementation="com.maddyhome.idea.vim.extension.camelcasemotion.CamelCaseMotionExtention"/>
   </extensions>
 
   <actions>
@@ -422,5 +423,8 @@
     <action id="VimVisualSelectPreviousSearch" class="com.maddyhome.idea.vim.action.motion.gn.VisualSelectPreviousSearch" text="Visual Select Previous Search"/>
     <action id="VimGnNextTextObject" class="com.maddyhome.idea.vim.action.motion.gn.GnNextTextObject" text="Gn Next Text Object"/>
     <action id="VimGnPreviousTextObject" class="com.maddyhome.idea.vim.action.motion.gn.GnPreviousTextObject" text="Gn Previous Text Object"/>
+
+    <!--CamelCaseMotion-->
+    <action id="VimMotionInnerCamelCaseWord" class="com.maddyhome.idea.vim.extension.camelcasemotion.MotionInnerCamelCaseWordAction" text="Select Inner Camel Case Word"/>
   </actions>
 </idea-plugin>
