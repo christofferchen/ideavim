@@ -33,6 +33,7 @@ import com.maddyhome.idea.vim.command.SelectionType;
 import com.maddyhome.idea.vim.common.Register;
 import com.maddyhome.idea.vim.common.TextRange;
 import com.maddyhome.idea.vim.handler.CaretOrder;
+import com.maddyhome.idea.vim.helper.EditorData;
 import com.maddyhome.idea.vim.helper.EditorHelper;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -286,7 +287,9 @@ public class CopyGroup {
       text = text + '\n';
     }
 
+    EditorData.setNoIncorrectVisualMode(editor, true);
     final int endOffset = putTextInternal(editor, caret, context, text, type, mode, startOffset, count, indent, cursorAfter);
+    EditorData.setNoIncorrectVisualMode(editor, false);
     VimPlugin.getMark().setChangeMarks(editor, new TextRange(startOffset, endOffset));
   }
 

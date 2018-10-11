@@ -398,6 +398,7 @@ public class EditorData {
   private static final Key<CommandState.Mode> CHANGE_ACTION_SWITCH_MODE = new Key<>("changeActionSwitchMode");
   private static final Key<Boolean> WAS_VISUAL_BLOCK_MODE = new Key<>("wasVisualBlockMode");
   private static final  Key<Caret> LAST_DOWN_CARET = new Key<>("lastDownCaret");
+  private static final Key<Boolean> NO_INCORRECT_VISUAL_MODE = new Key<>("noIncorrectVisualMode");
 
   private static final Logger logger = Logger.getInstance(EditorData.class.getName());
 
@@ -416,5 +417,12 @@ public class EditorData {
 
   public static void setTestInputModel(@NotNull Editor editor, @NotNull TestInputModel model) {
     editor.putUserData(TEST_INPUT_MODEL, model);
+  }
+
+  public static Boolean getNoIncorrectVisualMode(Editor editor) {
+    return editor.getUserData(NO_INCORRECT_VISUAL_MODE);
+  }
+  public static void setNoIncorrectVisualMode(Editor editor, boolean b) {
+    editor.putUserData(NO_INCORRECT_VISUAL_MODE, b);
   }
 }

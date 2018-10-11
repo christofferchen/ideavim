@@ -1845,13 +1845,18 @@ public class MotionGroup {
       myMakingChanges = true;
       try {
         final com.intellij.openapi.util.TextRange newRange = selectionEvent.getNewRange();
-        // Fix selection problems caused by multiple-cursors
-        if (Arrays.stream(selectionEvent.getNewRanges()).allMatch(r -> r.isEmpty())) {
-          return;
-        }
         for (Editor e : EditorFactory.getInstance().getEditors(document)) {
           //region sync vim selection
-          if (CommandState.getInstance(editor).getMode() != CommandState.Mode.VISUAL) {
+          // Fix selection problems caused by multiple-cursors
+          if (Arrays.stream(selectionEvent.getNewRanges()).allMatch(r -> r.isEmpty())) {
+            VimPlugin.getMotion().setVisualMode(editor, CommandState.SubMode.NONE);
+          }
+          final Boolean noIncorrectVisualMode = EditorData.getNoIncorrectVisualMode(editor);
+          boolean syncSelection = false;
+          if (noIncorrectVisualMode == null || noIncorrectVisualMode.equals(Boolean.FALSE)) {
+            syncSelection = true;
+          }
+          if (syncSelection && CommandState.getInstance(editor).getMode() != CommandState.Mode.VISUAL) {
             VimPlugin.getMotion().setVisualMode(editor, CommandState.SubMode.VISUAL_CHARACTER);
           }
           //endregion
