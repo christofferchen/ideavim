@@ -70,6 +70,7 @@
     <vimExtension implementation="com.maddyhome.idea.vim.extension.surround.VimSurroundExtension"/>
     <vimExtension implementation="com.maddyhome.idea.vim.extension.multiplecursors.VimMultipleCursorsExtension"/>
     <vimExtension implementation="com.maddyhome.idea.vim.extension.easymotion.VimEasyMotionExtension"/>
+    <vimExtension implementation="com.maddyhome.idea.vim.extension.camelcasemotion.CamelCaseMotionExtention"/>
   </extensions>
 
   <actions>
@@ -356,5 +357,8 @@
     <!-- Keys -->
     <action id="VimShortcutKeyAction" class="com.maddyhome.idea.vim.action.VimShortcutKeyAction" text="Shortcuts"/>
     <action id="VimOperatorAction" class="com.maddyhome.idea.vim.action.change.OperatorAction" text="Operator"/>
+
+    <!--CamelCaseMotion-->
+    <action id="VimMotionInnerCamelCaseWord" class="com.maddyhome.idea.vim.extension.camelcasemotion.MotionInnerCamelCaseWordAction" text="Select Inner Camel Case Word"/>
   </actions>
 </idea-plugin>
