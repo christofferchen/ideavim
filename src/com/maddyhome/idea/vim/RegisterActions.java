@@ -488,10 +488,10 @@ public class RegisterActions {
                       new Shortcut('N'));
     parser.registerAction(MappingMode.NVO, "VimExEntry", Command.Type.OTHER_READ_WRITE,
                           new Shortcut(':'));
-    parser.registerAction(MappingMode.NVO, "VimSearchWholeWordForward", Command.Type.MOTION,
+    parser.registerAction(MappingMode.NO, "VimSearchWholeWordForward", Command.Type.MOTION,
                           Command.FLAG_MOT_EXCLUSIVE | Command.FLAG_SAVE_JUMP,
                           new Shortcut('*'));
-    parser.registerAction(MappingMode.NVO, "VimSearchWholeWordBackward", Command.Type.MOTION,
+    parser.registerAction(MappingMode.NO, "VimSearchWholeWordBackward", Command.Type.MOTION,
                           Command.FLAG_MOT_EXCLUSIVE | Command.FLAG_SAVE_JUMP,
                           new Shortcut('#'));
     parser
