@@ -1850,6 +1850,8 @@ public class MotionGroup {
           // Fix selection problems caused by multiple-cursors
           if (Arrays.stream(selectionEvent.getNewRanges()).allMatch(r -> r.isEmpty())) {
             VimPlugin.getMotion().setVisualMode(editor, CommandState.SubMode.NONE);
+            myMakingChanges = false;
+            return;
           }
           final Boolean noIncorrectVisualMode = EditorData.getNoIncorrectVisualMode(editor);
           boolean syncSelection = false;
