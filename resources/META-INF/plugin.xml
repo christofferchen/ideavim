@@ -71,6 +71,7 @@
     <vimExtension implementation="com.maddyhome.idea.vim.extension.multiplecursors.VimMultipleCursorsExtension"/>
     <vimExtension implementation="com.maddyhome.idea.vim.extension.easymotion.VimEasyMotionExtension"/>
     <vimExtension implementation="com.maddyhome.idea.vim.extension.camelcasemotion.CamelCaseMotionExtention"/>
+    <vimExtension implementation="com.maddyhome.idea.vim.extension.argtextobj.VimArgTextObjExtension"/>
   </extensions>
 
   <actions>

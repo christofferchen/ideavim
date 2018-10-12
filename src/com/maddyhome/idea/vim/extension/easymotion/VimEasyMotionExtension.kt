@@ -19,6 +19,9 @@ private const val BD_S_W = "<Plug>easymotion-bd-s-w"
 private const val BD_W = "<Plug>easymotion-bd-w"
 private const val BD_JK = "<Plug>easymotion-bd-jk"
 
+/**
+ * integrated from https://github.com/a690700752/KJump
+ */
 class VimEasyMotionExtension : VimNonDisposableExtension() {
     override fun getName() = "easymotion"
 

@@ -93,6 +93,7 @@ Emulated Vim plugins:
 
 * vim-surround
 * vim-multiple-cursors
+* argtextobj.vim
 
 Not supported (yet):
 
@@ -142,6 +143,9 @@ Available extensions:
     * Emulates [vim-multiple-cursors](https://github.com/terryma/vim-multiple-cursors)
     * Commands: `<A-n>`, `<A-x>`, `<A-p>`, `g<A-n>`
 
+* argtextobj
+    * Emulates [argtextobj.vim](https://vim.sourceforge.io/scripts/script.php?script_id=2699)
+    * Text objects: `ia`, `aa`
 
 Changes to the IDE
 ------------------
