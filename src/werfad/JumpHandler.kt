@@ -53,6 +53,7 @@ object JumpHandler : TypedActionHandler {
                 // only one found, just jump to it
 //                e.caretModel.moveToOffset(marks[0].offset)
                 // work better with ideavim visual mode
+                VimPlugin.getMark().saveJumpLocation(e)
                 MotionGroup.moveCaret(e, e.caretModel.currentCaret, VimPlugin.getMotion().moveCaretToNthCharacter(e, marks[0].offset))
                 stop()
             }
