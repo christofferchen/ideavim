@@ -1855,7 +1855,8 @@ public class MotionGroup {
 
           final boolean allEmpty = Arrays.stream(selectionEvent.getNewRanges()).allMatch(r -> r.isEmpty());
 
-          if (!allEmpty && syncSelection && CommandState.getInstance(editor).getMode() != CommandState.Mode.VISUAL) {
+          final CommandState.Mode mode = CommandState.getInstance(editor).getMode();
+          if (!allEmpty && syncSelection && mode != CommandState.Mode.VISUAL && mode != CommandState.Mode.INSERT) {
             VimPlugin.getMotion().setVisualMode(editor, CommandState.SubMode.VISUAL_CHARACTER);
           }
           //endregion
