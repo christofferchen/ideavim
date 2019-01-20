@@ -1898,6 +1898,7 @@ public class MotionGroup {
     }
 
     public void mouseClicked(@NotNull EditorMouseEvent event) {
+        VimPlugin.setEnabled(false);
       if (!VimPlugin.isEnabled()) return;
 
       if (event.getArea() == EditorMouseEventArea.EDITING_AREA) {
