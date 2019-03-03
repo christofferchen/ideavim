@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2016 The IdeaVim authors
+ * Copyright (C) 2003-2019 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,16 +36,14 @@ public class MotionScrollFirstScreenLinePageStartAction extends EditorAction {
 
   private static class Handler extends EditorActionHandlerBase {
     protected boolean execute(@NotNull Editor editor, @NotNull DataContext context, @NotNull Command cmd) {
-      int raw = cmd.getRawCount();
-      int cnt = cmd.getCount();
-      if (raw == 0) {
-        int lines = EditorHelper.getScreenHeight(editor);
 
-        return VimPlugin.getMotion().scrollLine(editor, lines);
+      int line = cmd.getRawCount();
+      if (line == 0) {
+        final int nextVisualLine = EditorHelper.getVisualLineAtBottomOfScreen(editor) + 1;
+        line = EditorHelper.visualLineToLogicalLine(editor, nextVisualLine) + 1; // rawCount is 1 based
       }
-      else {
-        return VimPlugin.getMotion().scrollLineToFirstScreenLine(editor, raw, cnt, true);
-      }
+
+      return VimPlugin.getMotion().scrollLineToFirstScreenLine(editor, line, true);
     }
   }
 }

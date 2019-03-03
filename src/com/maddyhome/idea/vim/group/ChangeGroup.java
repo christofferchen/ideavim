@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2016 The IdeaVim authors
+ * Copyright (C) 2003-2019 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,6 +34,7 @@ import com.intellij.openapi.editor.actionSystem.ActionPlan;
 import com.intellij.openapi.editor.actionSystem.TypedActionHandler;
 import com.intellij.openapi.editor.actionSystem.TypedActionHandlerEx;
 import com.intellij.openapi.editor.event.*;
+import com.intellij.openapi.editor.ex.EditorEx;
 import com.intellij.openapi.editor.impl.TextRangeInterval;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileTypes.FileType;
@@ -43,6 +44,7 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.codeStyle.CodeStyleSettings;
 import com.intellij.util.ArrayUtil;
+import com.intellij.util.ObjectUtils;
 import com.maddyhome.idea.vim.EventFacade;
 import com.maddyhome.idea.vim.KeyHandler;
 import com.maddyhome.idea.vim.VimPlugin;
@@ -59,14 +61,10 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.event.KeyEvent;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 /**
  * Provides all the insert/replace related functionality
- * TODO - change cursor for the different modes
  */
 public class ChangeGroup {
 
@@ -424,16 +422,16 @@ public class ChangeGroup {
     final Command cmd = state.getCommand();
     if (cmd != null && state.getMode() == CommandState.Mode.REPEAT) {
       if (mode == CommandState.Mode.REPLACE) {
-        processInsert(editor, context);
+        setInsertEditorState(editor, false);
       }
-      if ((cmd.getFlags() & Command.FLAG_NO_REPEAT) != 0) {
+      if (cmd.getFlags().contains(CommandFlags.FLAG_NO_REPEAT)) {
         repeatInsert(editor, context, 1, false);
       }
       else {
         repeatInsert(editor, context, cmd.getCount(), false);
       }
       if (mode == CommandState.Mode.REPLACE) {
-        processInsert(editor, context);
+        setInsertEditorState(editor, true);
       }
     }
     else {
@@ -448,10 +446,7 @@ public class ChangeGroup {
       documentListener = new InsertActionsDocumentListener();
       eventFacade.addDocumentListener(document, documentListener);
       oldOffset = -1;
-      inInsert = true;
-      if (mode == CommandState.Mode.REPLACE) {
-        processInsert(editor, context);
-      }
+      setInsertEditorState(editor, mode == CommandState.Mode.INSERT);
       state.pushState(mode, CommandState.SubMode.NONE, MappingMode.INSERT);
 
       resetCursor(editor, true);
@@ -468,7 +463,7 @@ public class ChangeGroup {
   public void processPostChangeModeSwitch(@NotNull Editor editor, @NotNull DataContext context,
                                           @NotNull CommandState.Mode toSwitch) {
     if (toSwitch == CommandState.Mode.INSERT) {
-      initInsert(editor, context, toSwitch);
+      initInsert(editor, context, CommandState.Mode.INSERT);
     }
   }
 
@@ -617,10 +612,10 @@ public class ChangeGroup {
   public void processEscape(@NotNull Editor editor, @NotNull DataContext context) {
     int cnt = lastInsert != null ? lastInsert.getCount() : 0;
     if (CommandState.getInstance(editor).getMode() == CommandState.Mode.REPLACE) {
-      KeyHandler.executeAction("VimInsertReplaceToggle", context);
+      setInsertEditorState(editor, true);
     }
 
-    if (lastInsert != null && (lastInsert.getFlags() & Command.FLAG_NO_REPEAT) != 0) {
+    if (lastInsert != null && (lastInsert.getFlags().contains(CommandFlags.FLAG_NO_REPEAT))) {
       cnt = 1;
     }
 
@@ -639,6 +634,7 @@ public class ChangeGroup {
     markGroup.setMark(editor, MarkGroup.MARK_CHANGE_END, offset);
     markGroup.setMark(editor, MarkGroup.MARK_CHANGE_POS, offset);
     CommandState.getInstance(editor).popState();
+    exitAllSingleCommandInsertModes(editor);
 
     if (!CommandState.inInsertMode(editor)) {
       resetCursor(editor, false);
@@ -656,7 +652,7 @@ public class ChangeGroup {
    */
   public void processEnter(@NotNull Editor editor, @NotNull DataContext context) {
     if (CommandState.getInstance(editor).getMode() == CommandState.Mode.REPLACE) {
-      KeyHandler.executeAction("EditorToggleInsertState", context);
+      setInsertEditorState(editor, true);
     }
     final KeyStroke enterKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
     final List<AnAction> actions = VimPlugin.getKey().getActions(editor.getComponent(), enterKeyStroke);
@@ -666,7 +662,7 @@ public class ChangeGroup {
       }
     }
     if (CommandState.getInstance(editor).getMode() == CommandState.Mode.REPLACE) {
-      KeyHandler.executeAction("EditorToggleInsertState", context);
+      setInsertEditorState(editor, false);
     }
   }
 
@@ -675,12 +671,21 @@ public class ChangeGroup {
    * Insert/Overwrite state which updates the status bar.
    *
    * @param editor  The editor to toggle the state in
-   * @param context The data context
    */
-  public void processInsert(Editor editor, @NotNull DataContext context) {
-    KeyHandler.executeAction("EditorToggleInsertState", context);
+  public void processInsert(Editor editor) {
+    final EditorEx editorEx = ObjectUtils.tryCast(editor, EditorEx.class);
+    if (editorEx == null) return;
+    editorEx.setInsertMode(!editorEx.isInsertMode());
     CommandState.getInstance(editor).toggleInsertOverwrite();
-    inInsert = !inInsert;
+  }
+
+  /**
+   * Sets the insert/replace state of the editor.
+   */
+  private void setInsertEditorState(@NotNull Editor editor, boolean value) {
+    final EditorEx editorEx = ObjectUtils.tryCast(editor, EditorEx.class);
+    if (editorEx == null) return;
+    editorEx.setInsertMode(value);
   }
 
   /**
@@ -752,10 +757,10 @@ public class ChangeGroup {
    */
   public void processCommand(@NotNull Editor editor, @NotNull Command cmd) {
     // return value never used here
-    if ((cmd.getFlags() & Command.FLAG_SAVE_STROKE) != 0) {
+    if (cmd.getFlags().contains(CommandFlags.FLAG_SAVE_STROKE)) {
       strokes.add(cmd.getAction());
     }
-    else if ((cmd.getFlags() & Command.FLAG_CLEAR_STROKES) != 0) {
+    else if (cmd.getFlags().contains(CommandFlags.FLAG_CLEAR_STROKES)) {
       clearStrokes(editor);
     }
   }
@@ -992,17 +997,16 @@ public class ChangeGroup {
     if (motion == null) {
       return false;
     }
-    if (!isChange && (motion.getFlags() & Command.FLAG_MOT_LINEWISE) == 0) {
+    if (!isChange && !motion.getFlags().contains(CommandFlags.FLAG_MOT_LINEWISE)) {
       LogicalPosition start = editor.offsetToLogicalPosition(range.getStartOffset());
       LogicalPosition end = editor.offsetToLogicalPosition(range.getEndOffset());
       if (start.line != end.line) {
         if (!SearchHelper.anyNonWhitespace(editor, range.getStartOffset(), -1) &&
             !SearchHelper.anyNonWhitespace(editor, range.getEndOffset(), 1)) {
-          int flags = motion.getFlags();
-          flags &= ~Command.FLAG_MOT_EXCLUSIVE;
-          flags &= ~Command.FLAG_MOT_INCLUSIVE;
-          flags |= Command.FLAG_MOT_LINEWISE;
-          motion.setFlags(flags);
+          EnumSet<CommandFlags> flags = motion.getFlags();
+          flags.remove(CommandFlags.FLAG_MOT_EXCLUSIVE);
+          flags.remove(CommandFlags.FLAG_MOT_INCLUSIVE);
+          flags.add(CommandFlags.FLAG_MOT_LINEWISE);
         }
       }
     }
@@ -1260,17 +1264,17 @@ public class ChangeGroup {
         case VIM_MOTION_WORD_RIGHT:
           kludge = true;
           motion.setAction(ActionManager.getInstance().getAction(VIM_MOTION_WORD_END_RIGHT));
-          motion.setFlags(Command.FLAG_MOT_INCLUSIVE);
+          motion.setFlags(EnumSet.of(CommandFlags.FLAG_MOT_INCLUSIVE));
           break;
         case VIM_MOTION_BIG_WORD_RIGHT:
           kludge = true;
           motion.setAction(ActionManager.getInstance().getAction(VIM_MOTION_BIG_WORD_END_RIGHT));
-          motion.setFlags(Command.FLAG_MOT_INCLUSIVE);
+          motion.setFlags(EnumSet.of(CommandFlags.FLAG_MOT_INCLUSIVE));
           break;
         case VIM_MOTION_CAMEL_RIGHT:
           kludge = true;
           motion.setAction(ActionManager.getInstance().getAction(VIM_MOTION_CAMEL_END_RIGHT));
-          motion.setFlags(Command.FLAG_MOT_INCLUSIVE);
+          motion.setFlags(EnumSet.of(CommandFlags.FLAG_MOT_INCLUSIVE));
           break;
       }
     }
@@ -1296,7 +1300,7 @@ public class ChangeGroup {
           motion.setCount(motion.getCount() - 1);
         }
         else {
-          motion.setFlags(Command.FLAG_MOT_EXCLUSIVE);
+          motion.setFlags(EnumSet.of(CommandFlags.FLAG_MOT_EXCLUSIVE));
         }
       }
     }
@@ -1804,6 +1808,42 @@ public class ChangeGroup {
     }
   }
 
+  /**
+   * Perform increment and decrement for numbers in visual mode
+   *
+   * Flag [avalanche] marks if increment (or decrement) should be performed in avalanche mode
+   * (for v_g_Ctrl-A and v_g_Ctrl-X commands)
+   *
+   * @return true
+   */
+  public boolean changeNumberVisualMode(@NotNull final Editor editor, @NotNull Caret caret,
+                                        @NotNull TextRange selectedRange, final int count, boolean avalanche) {
+    BoundListOption nf = (BoundListOption) Options.getInstance().getOption("nrformats");
+    boolean alpha = nf.contains("alpha");
+    boolean hex = nf.contains("hex");
+    boolean octal = nf.contains("octal");
+
+    List<TextRange> numberRanges = SearchHelper.findNumbersInRange(editor, selectedRange, alpha, hex, octal);
+
+    List<String> newNumbers = new ArrayList<>();
+    for (int i = 0; i < numberRanges.size(); i++) {
+      TextRange numberRange = numberRanges.get(i);
+      int iCount = avalanche ? (i + 1) * count : count;
+      String newNumber = changeNumberInRange(editor, numberRange, iCount, alpha, hex, octal);
+      newNumbers.add(newNumber);
+    }
+
+    for (int i = newNumbers.size() - 1; i >= 0; i--) {
+      // Replace text bottom up. In other direction ranges will be desynchronized after inc numbers like 99
+      TextRange rangeToReplace = numberRanges.get(i);
+      String newNumber = newNumbers.get(i);
+      replaceText(editor, rangeToReplace.getStartOffset(), rangeToReplace.getEndOffset(), newNumber);
+    }
+
+    caret.moveToOffset(selectedRange.getStartOffset());
+    return true;
+  }
+
   public boolean changeNumber(@NotNull final Editor editor, @NotNull Caret caret, final int count) {
     final BoundListOption nf = (BoundListOption)Options.getInstance().getOption("nrformats");
     final boolean alpha = nf.contains("alpha");
@@ -1815,81 +1855,97 @@ public class ChangeGroup {
       logger.debug("no number on line");
       return false;
     }
-    else {
-      String text = EditorHelper.getText(editor, range);
-      if (logger.isDebugEnabled()) {
-        logger.debug("found range " + range);
-        logger.debug("text=" + text);
-      }
-      String number = text;
-      if (text.length() == 0) {
-        return false;
-      }
 
-      char ch = text.charAt(0);
-      if (hex && text.toLowerCase().startsWith("0x")) {
-        for (int i = text.length() - 1; i >= 2; i--) {
-          int index = "abcdefABCDEF".indexOf(text.charAt(i));
-          if (index >= 0) {
-            lastLower = index < 6;
-            break;
-          }
-        }
-
-        int num = (int)Long.parseLong(text.substring(2), 16);
-        num += count;
-        number = Integer.toHexString(num);
-        number = StringHelper.rightJustify(number, text.length() - 2, '0');
-
-        if (!lastLower) {
-          number = number.toUpperCase();
-        }
-
-        number = text.substring(0, 2) + number;
-      }
-      else if (octal && text.startsWith("0") && text.length() > 1) {
-        int num = (int)Long.parseLong(text, 8);
-        num += count;
-        number = Integer.toOctalString(num);
-        number = "0" + StringHelper.rightJustify(number, text.length() - 1, '0');
-      }
-      else if (alpha && Character.isLetter(ch)) {
-        ch += count;
-        if (Character.isLetter(ch)) {
-          number = "" + ch;
-        }
-      }
-      else if (ch == '-' || Character.isDigit(ch)) {
-        boolean pad = ch == '0';
-        int len = text.length();
-        if (ch == '-' && text.charAt(1) == '0') {
-          pad = true;
-          len--;
-        }
-
-        int num = Integer.parseInt(text);
-        num += count;
-        number = Integer.toString(num);
-
-        if (!octal && pad) {
-          boolean neg = false;
-          if (number.charAt(0) == '-') {
-            neg = true;
-            number = number.substring(1);
-          }
-          number = StringHelper.rightJustify(number, len, '0');
-          if (neg) {
-            number = "-" + number;
-          }
-        }
-      }
-
-      if (!text.equals(number)) {
-        replaceText(editor, range.getStartOffset(), range.getEndOffset(), number);
-        caret.moveToOffset(range.getStartOffset() + number.length() - 1);
-      }
-
+    String newNumber = changeNumberInRange(editor, range, count, alpha, hex, octal);
+    if (newNumber == null) {
+      return false;
+    } else {
+      replaceText(editor, range.getStartOffset(), range.getEndOffset(), newNumber);
+      caret.moveToOffset(range.getStartOffset() + newNumber.length() - 1);
       return true;
+    }
+  }
+
+  @Nullable
+  public String changeNumberInRange(@NotNull final Editor editor, @NotNull TextRange range, final int count,
+                                     boolean alpha, boolean hex, boolean octal) {
+    String text = EditorHelper.getText(editor, range);
+    if (logger.isDebugEnabled()) {
+      logger.debug("found range " + range);
+      logger.debug("text=" + text);
+    }
+    String number = text;
+    if (text.length() == 0) {
+      return null;
+    }
+
+    char ch = text.charAt(0);
+    if (hex && text.toLowerCase().startsWith("0x")) {
+      for (int i = text.length() - 1; i >= 2; i--) {
+        int index = "abcdefABCDEF".indexOf(text.charAt(i));
+        if (index >= 0) {
+          lastLower = index < 6;
+          break;
+        }
+      }
+
+      int num = (int)Long.parseLong(text.substring(2), 16);
+      num += count;
+      number = Integer.toHexString(num);
+      number = StringHelper.rightJustify(number, text.length() - 2, '0');
+
+      if (!lastLower) {
+        number = number.toUpperCase();
+      }
+
+      number = text.substring(0, 2) + number;
+    }
+    else if (octal && text.startsWith("0") && text.length() > 1) {
+      int num = (int)Long.parseLong(text, 8);
+      num += count;
+      number = Integer.toOctalString(num);
+      number = "0" + StringHelper.rightJustify(number, text.length() - 1, '0');
+    }
+    else if (alpha && Character.isLetter(ch)) {
+      ch += count;
+      if (Character.isLetter(ch)) {
+        number = "" + ch;
+      }
+    }
+    else if (ch == '-' || Character.isDigit(ch)) {
+      boolean pad = ch == '0';
+      int len = text.length();
+      if (ch == '-' && text.charAt(1) == '0') {
+        pad = true;
+        len--;
+      }
+
+      int num = Integer.parseInt(text);
+      num += count;
+      number = Integer.toString(num);
+
+      if (!octal && pad) {
+        boolean neg = false;
+        if (number.charAt(0) == '-') {
+          neg = true;
+          number = number.substring(1);
+        }
+        number = StringHelper.rightJustify(number, len, '0');
+        if (neg) {
+          number = "-" + number;
+        }
+      }
+    }
+
+    return number;
+  }
+
+  private void exitAllSingleCommandInsertModes(@NotNull Editor editor) {
+    while (CommandState.inSingleCommandMode(editor)) {
+      CommandState.getInstance(editor).popState();
+      if (CommandState.inInsertMode(editor)) {
+        CommandState.getInstance(editor).popState();
+      }
     }
   }
 
@@ -1898,7 +1954,6 @@ public class ChangeGroup {
   private List<Object> lastStrokes;
   @Nullable
   private Command lastInsert;
-  private boolean inInsert;
   private int repeatLines;
   private int repeatColumn;
   private boolean repeatAppend;

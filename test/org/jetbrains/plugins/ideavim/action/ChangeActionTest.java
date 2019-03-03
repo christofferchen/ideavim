@@ -1,6 +1,25 @@
+/*
+ * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
+ * Copyright (C) 2003-2019 The IdeaVim authors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package org.jetbrains.plugins.ideavim.action;
 
 import com.maddyhome.idea.vim.VimPlugin;
+import com.maddyhome.idea.vim.command.CommandState;
 import org.jetbrains.plugins.ideavim.VimTestCase;
 
 import static com.maddyhome.idea.vim.helper.StringHelper.parseKeys;
@@ -27,6 +46,20 @@ public class ChangeActionTest extends VimTestCase {
            "}\n",
            "if (\n" +
            "}\n");
+  }
+
+  // VIM-620 |i_CTRL-O|
+  public void testInsertSingleCommandAndInserting() {
+    doTest(parseKeys("i", "<C-O>", "a", "123", "<Esc>", "x"),
+            "abc<caret>d\n",
+            "abcd12\n");
+  }
+
+  // VIM-620 |i_CTRL-O|
+  public void testInsertSingleCommandAndNewLineInserting() {
+    doTest(parseKeys("i", "<C-O>", "o", "123", "<Esc>", "x"),
+           "abc<caret>d\n",
+           "abcd\n12\n");
   }
 
   // VIM-311 |i_CTRL-O|
@@ -644,5 +677,62 @@ public class ChangeActionTest extends VimTestCase {
                           " */\n" +
                           "<caret>Xfoo\n" +
                           "Xbar\n");
+  }
+
+  public void testRepeatReplace() {
+    configureByText("<caret>foobarbaz spam\n");
+    typeText(parseKeys("R"));
+    assertMode(CommandState.Mode.REPLACE);
+    typeText(parseKeys("FOO", "<Esc>", "l", "2."));
+    myFixture.checkResult("FOOFOOFO<caret>O spam\n");
+    assertMode(CommandState.Mode.COMMAND);
+  }
+
+  public void ignoredDownMovementAfterDeletionToStart() {
+    doTest(parseKeys("ld^j"),
+            "lorem <caret>ipsum dolor sit amet\n" +
+                   "lorem ipsum dolor sit amet",
+              "psum dolor sit amet\n" +
+                    "<caret>lorem ipsum dolor sit amet");
+  }
+
+  public void ignoredDownMovementAfterDeletionToPrevWord() {
+    doTest(parseKeys("ldbj"),
+            "lorem<caret> ipsum dolor sit amet\n" +
+                    "lorem ipsum dolor sit amet",
+            "ipsum dolor sit amet\n" +
+                    "<caret>lorem ipsum dolor sit amet");
+  }
+
+  public void ignoredDownMovementAfterChangeToPrevWord() {
+    doTest(parseKeys("lcb<Esc>j"),
+            "lorem<caret> ipsum dolor sit amet\n" +
+                    "lorem ipsum dolor sit amet",
+            "ipsum dolor sit amet\n" +
+                    "<caret>lorem ipsum dolor sit amet");
+  }
+
+  public void ignoredDownMovementAfterChangeToLineStart() {
+    doTest(parseKeys("lc^<Esc>j"),
+            "lorem<caret> ipsum dolor sit amet\n" +
+                    "lorem ipsum dolor sit amet",
+            "ipsum dolor sit amet\n" +
+                    "<caret>lorem ipsum dolor sit amet");
+  }
+
+  public void ignoredUpMovementAfterDeletionToStart() {
+    doTest(parseKeys("ld^k"),
+            "lorem ipsum dolor sit amet\n" +
+                    "lorem <caret>ipsum dolor sit amet",
+            "<caret>lorem ipsum dolor sit amet\n" +
+                    "psum dolor sit amet");
+  }
+
+  public void ignoredUpMovementAfterChangeToPrevWord() {
+    doTest(parseKeys("lcb<Esc>k"),
+            "lorem ipsum dolor sit amet\n" +
+                    "lorem<caret> ipsum dolor sit amet",
+            "<caret>lorem ipsum dolor sit amet\n" +
+                    "ipsum dolor sit amet");
   }
 }

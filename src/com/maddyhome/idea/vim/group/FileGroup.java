@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2016 The IdeaVim authors
+ * Copyright (C) 2003-2019 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,7 +26,6 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.fileEditor.*;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
-import com.intellij.openapi.fileEditor.impl.EditorTabbedContainer;
 import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.fileTypes.FileTypeManager;
@@ -37,7 +36,6 @@ import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileVisitor;
-import com.maddyhome.idea.vim.KeyHandler;
 import com.maddyhome.idea.vim.VimPlugin;
 import com.maddyhome.idea.vim.command.CommandState;
 import com.maddyhome.idea.vim.common.TextRange;
@@ -153,37 +151,12 @@ public class FileGroup {
     if (project != null) {
       final FileEditorManagerEx fileEditorManager = FileEditorManagerEx.getInstanceEx(project);
       final EditorWindow window = fileEditorManager.getCurrentWindow();
-      final EditorTabbedContainer tabbedPane = window.getTabbedPane();
-      if (tabbedPane != null) {
-        if (tabbedPane.getTabCount() > 1) {
-          final int index = tabbedPane.getSelectedIndex();
-          tabbedPane.removeTabAt(index, index + 1);
-        }
-        else {
-          tabbedPane.close();
-        }
-      }
-      else {
-        VirtualFile virtualFile = EditorData.getVirtualFile(editor);
-        if (virtualFile != null) {
-          fileEditorManager.closeFile(virtualFile);
-        }
+      final VirtualFile virtualFile = EditorData.getVirtualFile(editor);
+
+      if (virtualFile != null) {
+        window.closeFile(virtualFile);
       }
     }
-  }
-
-  /**
-   * Closes all editors except for the current editor.
-   */
-  public void closeAllButCurrent(@NotNull DataContext context) {
-    KeyHandler.executeAction("CloseAllEditorsButCurrent", context);
-  }
-
-  /**
-   * Closes all editors.
-   */
-  public void closeAllFiles(@NotNull DataContext context) {
-    KeyHandler.executeAction("CloseAllEditors", context);
   }
 
   /**

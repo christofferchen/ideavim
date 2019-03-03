@@ -2,6 +2,16 @@
   <name>IdeaVim</name>
   <id>IdeaVIM</id>
   <change-notes><![CDATA[
+      <p>To be released:</p>
+      <ul>
+        <li>Support :shell command</li>
+        <li>Support :tabnext and :tabprevious commands</li>
+        <li>Various bug fixes</li>
+      </ul>
+      <p>0.51:</p>
+      <ul>
+        <li>Various bug fixes</li>
+      </ul>
       <p>0.50:</p>
       <ul>
         <li>Moved "Vim Emulation" settings into "File | Settings | Editor"</li>
@@ -46,7 +56,7 @@
   <version>SNAPSHOT</version>
   <vendor>JetBrains</vendor>
 
-  <idea-version since-build="181.0"/>
+  <idea-version since-build="183.2940.10"/>
 
   <!-- Mark the plugin as compatible with RubyMine and other products based on the IntelliJ platform -->
   <depends>com.intellij.modules.lang</depends>
@@ -265,8 +275,12 @@
     <action id="VimChangeEndOfLine" class="com.maddyhome.idea.vim.action.change.change.ChangeEndOfLineAction" text="Change to End-of-Line"/>
     <action id="VimChangeLine" class="com.maddyhome.idea.vim.action.change.change.ChangeLineAction" text="Change Line"/>
     <action id="VimChangeMotion" class="com.maddyhome.idea.vim.action.change.change.ChangeMotionAction" text="Change Motion"/>
-    <action id="VimChangeNumberInc" class="com.maddyhome.idea.vim.action.change.change.ChangeNumberIncAction" text="Increment Number"/>
-    <action id="VimChangeNumberDec" class="com.maddyhome.idea.vim.action.change.change.ChangeNumberDecAction" text="Decrement Number"/>
+    <action id="VimChangeNumberInc" class="com.maddyhome.idea.vim.action.change.change.number.ChangeNumberIncAction" text="Increment Number"/>
+    <action id="VimChangeNumberDec" class="com.maddyhome.idea.vim.action.change.change.number.ChangeNumberDecAction" text="Decrement Number"/>
+    <action id="VimChangeVisualNumberInc" class="com.maddyhome.idea.vim.action.change.change.number.ChangeVisualNumberIncAction" text="Increment Number"/>
+    <action id="VimChangeVisualNumberDec" class="com.maddyhome.idea.vim.action.change.change.number.ChangeVisualNumberDecAction" text="Decrement Number"/>
+    <action id="VimChangeVisualAvalancheNumberInc" class="com.maddyhome.idea.vim.action.change.change.number.ChangeVisualNumberAvalancheIncAction" text="Increment Number"/>
+    <action id="VimChangeVisualAvalancheNumberDec" class="com.maddyhome.idea.vim.action.change.change.number.ChangeVisualNumberAvalancheDecAction" text="Decrement Number"/>
     <action id="VimChangeReplace" class="com.maddyhome.idea.vim.action.change.change.ChangeReplaceAction" text="Replace"/>
     <action id="VimChangeVisual" class="com.maddyhome.idea.vim.action.change.change.ChangeVisualAction" text="Change Motion"/>
     <action id="VimChangeVisualCharacter" class="com.maddyhome.idea.vim.action.change.change.ChangeVisualCharacterAction" text="Change Motion"/>
@@ -355,6 +369,9 @@
     <action id="VimResetMode" class="com.maddyhome.idea.vim.action.ResetModeAction" text="Reset Mode"/>
     <action id="VimRedo" class="com.maddyhome.idea.vim.action.change.RedoAction" text="Redo"/>
     <action id="VimUndo" class="com.maddyhome.idea.vim.action.change.UndoAction" text="Undo"/>
+
+    <!-- Internal -->
+    <action id="VimInternalAddInlays" class="com.maddyhome.idea.vim.action.internal.AddInlaysAction" text="Vim (internal) add test inlays" internal="true"/>
 
     <!-- Keys -->
     <action id="VimShortcutKeyAction" class="com.maddyhome.idea.vim.action.VimShortcutKeyAction" text="Shortcuts"/>

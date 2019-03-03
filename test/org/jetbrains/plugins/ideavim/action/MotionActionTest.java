@@ -1,3 +1,21 @@
+/*
+ * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
+ * Copyright (C) 2003-2019 The IdeaVim authors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package org.jetbrains.plugins.ideavim.action;
 
 import com.intellij.json.JsonFileType;
@@ -772,100 +790,6 @@ public class MotionActionTest extends VimTestCase {
   public void testDeleteOuterTagWithCount() {
     typeTextInFile(parseKeys("d2at"),"<a><b><c><caret></c></b></a>");
     myFixture.checkResult("<a></a>");
-  }
-
-
-  // |%|
-  public void testPercentMatchSimple() {
-    typeTextInFile(parseKeys("%"),
-                   "foo(b<caret>ar)\n");
-    assertOffset(3);
-  }
-
-  // |%|
-  public void testPercentMatchMultiLine() {
-    typeTextInFile(parseKeys("%"),
-                   "foo(bar,\n" +
-                   "    baz,\n" +
-                   "    <caret>quux)\n");
-    assertOffset(3);
-  }
-
-  // |%|
-  public void testPercentMatchParensInString() {
-    typeTextInFile(parseKeys("%"),
-                   "foo(bar, \"foo(bar\", <caret>baz)\n");
-    assertOffset(3);
-  }
-
-  // |%|
-  public void testPercentMatchXmlCommentStart() {
-    configureByXmlText("<caret><!-- foo -->");
-    typeText(parseKeys("%"));
-    myFixture.checkResult("<!-- foo --<caret>>");
-  }
-
-  // |%|
-  public void testPercentDoesntMatchPartialXmlComment() {
-    configureByXmlText("<!<caret>-- ");
-    typeText(parseKeys("%"));
-    myFixture.checkResult("<!<caret>-- ");
-  }
-
-  // |%|
-  public void testPercentMatchXmlCommentEnd() {
-    configureByXmlText("<!-- foo --<caret>>");
-    typeText(parseKeys("%"));
-    myFixture.checkResult("<caret><!-- foo -->");
-  }
-
-  // |%|
-  public void testPercentMatchJavaCommentStart() {
-    configureByJavaText("/<caret>* foo */");
-    typeText(parseKeys("%"));
-    myFixture.checkResult("/* foo *<caret>/");
-  }
-
-  // |%|
-  public void testPercentDoesntMatchPartialJavaComment() {
-    configureByJavaText("<caret>/* ");
-    typeText(parseKeys("%"));
-    myFixture.checkResult("<caret>/* ");
-  }
-
-  // |%|
-  public void testPercentMatchJavaCommentEnd() {
-    configureByJavaText("/* foo <caret>*/");
-    typeText(parseKeys("%"));
-    myFixture.checkResult("<caret>/* foo */");
-  }
-
-  // |%|
-  public void testPercentMatchJavaDocCommentStart() {
-    configureByJavaText("/*<caret>* foo */");
-    typeText(parseKeys("%"));
-    myFixture.checkResult("/** foo *<caret>/");
-  }
-
-  // |%|
-  public void testPercentMatchJavaDocCommentEnd() {
-    configureByJavaText("/** foo *<caret>/");
-    typeText(parseKeys("%"));
-    myFixture.checkResult("<caret>/** foo */");
-  }
-
-  // |%|
-  public void testPercentDoesntMatchAfterCommentStart() {
-    configureByJavaText("/*<caret> foo */");
-    typeText(parseKeys("%"));
-    myFixture.checkResult("/*<caret> foo */");
-  }
-
-  // |%|
-  public void testPercentDoesntMatchBeforeCommentEnd() {
-    configureByJavaText("/* foo <caret> */");
-    typeText(parseKeys("%"));
-    myFixture.checkResult("/* foo <caret> */");
   }
 
   // |[(|

@@ -1,3 +1,21 @@
+/*
+ * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
+ * Copyright (C) 2003-2019 The IdeaVim authors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package org.jetbrains.plugins.ideavim.ex
 
 import com.maddyhome.idea.vim.VimPlugin
@@ -176,50 +194,6 @@ class MultipleCaretsTest : VimTestCase() {
     myFixture.checkResult(after)
   }
 
-  fun testShiftLeft() {
-    val before = """qwe
-      |   r<caret>ty
-      |  asd
-      |f<caret>gh
-      |     z<caret>xc
-      |vbn
-    """.trimMargin()
-    configureByJavaText(before)
-
-    typeText(commandToKeys("<"))
-
-    val after = """qwe
-      |<caret>rty
-      |  asd
-      |<caret>fgh
-      | <caret>zxc
-      |vbn
-    """.trimMargin()
-    myFixture.checkResult(after)
-  }
-
-  fun testShiftRight() {
-    val before = """qw<caret>e
-      |   rty
-      |  asd
-      |f<caret>gh
-      |     zxc
-      |vb<caret>n
-    """.trimMargin()
-    configureByJavaText(before)
-
-    typeText(commandToKeys(">>"))
-
-    val after = """        <caret>qwe
-      |   rty
-      |  asd
-      |        <caret>fgh
-      |     zxc
-      |        <caret>vbn
-    """.trimMargin()
-    myFixture.checkResult(after)
-  }
-
   fun testSortRangeWholeFile() {
     val before = """qwe
       |as<caret>d
@@ -297,50 +271,6 @@ class MultipleCaretsTest : VimTestCase() {
       |Rty
       |fgh
       |vbn
-    """.trimMargin()
-    myFixture.checkResult(after)
-  }
-
-  fun testSubstitute() {
-    val before = """public class C {
-      |  Stri<caret>ng a;
-      |<caret>  String b;
-      |  Stri<caret>ng c;
-      |  String d;
-      |}
-    """.trimMargin()
-    configureByJavaText(before)
-
-    typeText(commandToKeys("s/String/Integer"))
-
-    val after = """public class C {
-      |  <caret>Integer a;
-      |  <caret>Integer b;
-      |  <caret>Integer c;
-      |  String d;
-      |}
-    """.trimMargin()
-    myFixture.checkResult(after)
-  }
-
-  fun testSubstituteAllOccurrences() {
-    val before = """public class C {
-      |  Stri<caret>ng a; String e;
-      |<caret>  String b;
-      |  Stri<caret>ng c; String f;
-      |  String d;
-      |}
-    """.trimMargin()
-    configureByJavaText(before)
-
-    typeText(commandToKeys("s/String/Integer/g"))
-
-    val after = """public class C {
-      |  <caret>Integer a; Integer e;
-      |  <caret>Integer b;
-      |  <caret>Integer c; Integer f;
-      |  String d;
-      |}
     """.trimMargin()
     myFixture.checkResult(after)
   }

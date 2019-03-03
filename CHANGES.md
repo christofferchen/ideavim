@@ -16,11 +16,29 @@ It is important to distinguish EAP from traditional pre-release software.
 Please note that the quality of EAP versions may at times be way below even
 usual beta standards.
 
-
 To Be Released
 --------------
 
-...
+* Fixed `:only` command
+* [VIM-1586](https://youtrack.jetbrains.com/issue/VIM-1586) Support `:shell` command
+* [VIM-801](https://youtrack.jetbrains.com/issue/VIM-801) Support `:tabnext` and `:tabprevious` commands
+* [VIM-1570](https://youtrack.jetbrains.com/issue/VIM-1570) Support `g<C-A>` and `g<C-X>` commands for visual mode
+* [VIM-1119](https://youtrack.jetbrains.com/issue/VIM-1119) Fixed 'e' search offset
+* [VIM-1587](https://youtrack.jetbrains.com/issue/VIM-1587) Fixed end-of-line multi line percent match in visual mode
+* [VIM-1303](https://youtrack.jetbrains.com/issue/VIM-1303) Fixed "Changing color schemes doesn't change find input"
+* [VIM-944](https://youtrack.jetbrains.com/issue/VIM-944) Fixed navigation with keypad arrows
+* [VIM-1569](https://youtrack.jetbrains.com/issue/VIM-1569) Fixed surround plugin bug by `S<tag attr="attr">`
+* [VIM-1012](https://youtrack.jetbrains.com/issue/VIM-1012) Fixed wrong tab selection after`:q`
+* [VIM-1245](https://youtrack.jetbrains.com/issue/VIM-1245) Clear switcher list after`:q`
+
+
+0.51, 2019-02-12
+----------------
+
+* [VIM-1558](https://youtrack.jetbrains.com/issue/VIM-1558) Fixed scrolling for code with block inlays in Rider 2018.3 
+* [VIM-1187](https://youtrack.jetbrains.com/issue/VIM-1187) Improved performance of `set relativelinenumber` on large files
+* [VIM-620](https://youtrack.jetbrains.com/issue/VIM-620) Fixed handling `<C-O>` and `<Esc>` in Insert and Replace modes
+* [VIM-798](https://youtrack.jetbrains.com/issue/VIM-798) Allow arrow keys for window navigation commands
 
 
 0.50, 2018-10-18
