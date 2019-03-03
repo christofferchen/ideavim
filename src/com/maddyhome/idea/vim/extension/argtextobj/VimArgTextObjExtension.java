@@ -11,6 +11,7 @@ import com.maddyhome.idea.vim.action.VimCommandAction;
 import com.maddyhome.idea.vim.action.motion.TextObjectAction;
 import com.maddyhome.idea.vim.command.Argument;
 import com.maddyhome.idea.vim.command.Command;
+import com.maddyhome.idea.vim.command.CommandFlags;
 import com.maddyhome.idea.vim.command.MappingMode;
 import com.maddyhome.idea.vim.common.TextRange;
 import com.maddyhome.idea.vim.extension.VimNonDisposableExtension;
@@ -19,6 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Stack;
@@ -103,8 +105,8 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
     }
 
     @Override
-    public int getFlags() {
-      return Command.FLAG_MOT_CHARACTERWISE | Command.FLAG_MOT_INCLUSIVE | Command.FLAG_TEXT_BLOCK;
+    public EnumSet<CommandFlags> getFlags() {
+      return EnumSet.of(CommandFlags.FLAG_MOT_CHARACTERWISE, CommandFlags.FLAG_MOT_INCLUSIVE, CommandFlags.FLAG_TEXT_BLOCK);
     }
 
   }
