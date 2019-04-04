@@ -1906,8 +1906,6 @@ public class MotionGroup {
         private int endOff;
 
         public void mouseMoved(@NotNull EditorMouseEvent event) {
-            if (!VimPlugin.isEnabled()) return;
-            VimPlugin.setEnabled(false);
         }
 
         public void mouseDragged(@NotNull EditorMouseEvent event) {
@@ -1934,6 +1932,7 @@ public class MotionGroup {
 
         public void mouseClicked(@NotNull EditorMouseEvent event) {
             if (!VimPlugin.isEnabled()) return;
+            VimPlugin.setEnabled(false);
 
             if (event.getArea() == EditorMouseEventArea.EDITING_AREA) {
                 VimPlugin.getMotion().processMouseClick(event.getEditor(), event.getMouseEvent());
