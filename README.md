@@ -145,6 +145,9 @@ Available extensions:
 * multiple-cursors
     * Emulates [vim-multiple-cursors](https://github.com/terryma/vim-multiple-cursors)
     * Commands: `<A-n>`, `<A-x>`, `<A-p>`, `g<A-n>`
+* commentary
+    * Emulates [commentary.vim](https://github.com/tpope/vim-commentary)
+    * Commands: `gcc`, `gc + motion`, `v_gc`
 
 * argtextobj
     * Emulates [argtextobj.vim](https://vim.sourceforge.io/scripts/script.php?script_id=2699)

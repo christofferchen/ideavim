@@ -37,7 +37,7 @@ Contributors:
 * [Jackson Popkin](mailto:jackson@donorschoose.org)
 * [Teruo Kunihiro](mailto:yuyuyu1999@gmail.com)
 * [Liubov Paina](mailto:lubashka.994@mail.ru)
-* [Daniel Leong](mailto:falcone88@gmail.com)
+* [Daniel Leong](mailto:me@dhleong.net)
 * [Aleksey Lagoshin](mailto:aleksey@pri-num.com)
 * [Paulo Bu](mailto:pbu_98@yahoo.com)
 * [Giorgos Gaganis](mailto:gaganis@yahoo.com)
@@ -62,6 +62,8 @@ Contributors:
 * [dos65](mailto:qtankle@gmail.com)
 * [Tony Arra](mailto:ttonyarra@gmail.com)
 * [Brad Ziolko](mailto:bradziolko@gmail.com)
+* [sumoooru2](mailto:sumoooru2@gmail.com)
+* [gecko655](mailto:aqwsedrft1234@yahoo.co.jp)
 
 If you are a contributor and your name is not listed here, feel free to
 contact the maintainer.
