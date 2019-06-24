@@ -91,6 +91,7 @@
     <vimExtension implementation="com.maddyhome.idea.vim.extension.commentary.CommentaryExtension"/>
     <vimExtension implementation="com.maddyhome.idea.vim.extension.easymotion.VimEasyMotionExtension"/>
     <vimExtension implementation="com.maddyhome.idea.vim.extension.camelcasemotion.CamelCaseMotionExtention"/>
+    <vimExtension implementation="com.maddyhome.idea.vim.extension.argtextobj.VimArgTextObjExtension"/>
   </extensions>
 
   <actions>
