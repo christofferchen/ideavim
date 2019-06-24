@@ -23,21 +23,19 @@ import com.intellij.openapi.editor.Caret
 import com.intellij.openapi.editor.Editor
 import com.maddyhome.idea.vim.VimPlugin
 import com.maddyhome.idea.vim.ex.CommandHandler
-import com.maddyhome.idea.vim.ex.CommandHandler.Flag.ARGUMENT_REQUIRED
 import com.maddyhome.idea.vim.ex.CommandHandler.Flag.DONT_SAVE_LAST
-import com.maddyhome.idea.vim.ex.CommandHandler.Flag.RANGE_OPTIONAL
+import com.maddyhome.idea.vim.ex.CommandHandlerFlags
+import com.maddyhome.idea.vim.ex.CommandName
 import com.maddyhome.idea.vim.ex.CommandParser
 import com.maddyhome.idea.vim.ex.ExCommand
 import com.maddyhome.idea.vim.ex.ExException
 import com.maddyhome.idea.vim.ex.commands
 import com.maddyhome.idea.vim.ex.flags
 import com.maddyhome.idea.vim.group.MotionGroup
-import com.maddyhome.idea.vim.handler.CaretOrder
 
-class RepeatHandler : CommandHandler(commands("@"),
-        flags(RANGE_OPTIONAL, ARGUMENT_REQUIRED, DONT_SAVE_LAST),
-        true, CaretOrder.DECREASING_OFFSET
-) {
+class RepeatHandler : CommandHandler.ForEachCaret() {
+  override val names: Array<CommandName> = commands("@")
+  override val argFlags: CommandHandlerFlags = flags(RangeFlag.RANGE_OPTIONAL, ArgumentFlag.ARGUMENT_REQUIRED, DONT_SAVE_LAST)
 
   private var lastArg = ':'
 
@@ -48,7 +46,7 @@ class RepeatHandler : CommandHandler(commands("@"),
     lastArg = arg
 
     val line = cmd.getLine(editor, caret, context)
-    MotionGroup.moveCaret(editor, caret, VimPlugin.getMotion().moveCaretToLine(editor, line))
+    MotionGroup.moveCaret(editor, caret, VimPlugin.getMotion().moveCaretToLine(editor, line, editor.caretModel.primaryCaret))
 
     if (arg == ':') {
       return CommandParser.getInstance().processLastCommand(editor, context, 1)

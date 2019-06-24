@@ -27,8 +27,7 @@ import com.maddyhome.idea.vim.command.Command;
 import com.maddyhome.idea.vim.handler.EditorActionHandlerBase;
 import org.jetbrains.annotations.NotNull;
 
-/**
- */
+
 public class YankMotionAction extends EditorAction {
   public YankMotionAction() {
     super(new Handler());
@@ -41,7 +40,7 @@ public class YankMotionAction extends EditorAction {
         return false;
       }
 
-      return VimPlugin.getCopy().yankMotion(editor, context, cmd.getCount(), cmd.getRawCount(), argument);
+      return VimPlugin.getYank().yankMotion(editor, context, cmd.getCount(), cmd.getRawCount(), argument);
     }
   }
 }

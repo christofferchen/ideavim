@@ -29,8 +29,7 @@ import com.maddyhome.idea.vim.handler.ChangeEditorActionHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-/**
- */
+
 public class ChangeLineAction extends EditorAction {
   public ChangeLineAction() {
     super(new ChangeEditorActionHandler(true, CaretOrder.DECREASING_OFFSET) {
@@ -41,7 +40,7 @@ public class ChangeLineAction extends EditorAction {
                              int count,
                              int rawCount,
                              @Nullable Argument argument) {
-        return VimPlugin.getChange().changeLine(editor, caret, count);
+        return VimPlugin.getChange().changeLine(editor, caret, count, context);
       }
     });
   }

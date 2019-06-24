@@ -22,16 +22,9 @@ import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.editor.Caret;
 import com.intellij.openapi.editor.Editor;
 import com.maddyhome.idea.vim.common.TextRange;
-import com.maddyhome.idea.vim.handler.CaretOrder;
-import com.maddyhome.idea.vim.helper.EditorHelper;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.List;
 
-/**
- *
- */
 public class ExCommand {
   public ExCommand(@NotNull Ranges ranges, @NotNull String command, @NotNull String argument) {
     this.ranges = ranges;
@@ -45,16 +38,6 @@ public class ExCommand {
 
   public int getLine(@NotNull Editor editor, @NotNull Caret caret, @NotNull DataContext context) {
     return ranges.getLine(editor, caret, context);
-  }
-
-  public List<Integer> getOrderedLines(@NotNull Editor editor, @NotNull DataContext context,
-                                       @NotNull CaretOrder caretOrder) {
-    final ArrayList<Integer> lines = new ArrayList<>(editor.getCaretModel().getCaretCount());
-    for (Caret caret : EditorHelper.getOrderedCaretsList(editor, caretOrder)) {
-      final int line = getLine(editor, caret, context);
-      lines.add(line);
-    }
-    return lines;
   }
 
   public int getCount(@NotNull Editor editor, DataContext context, int defaultCount, boolean checkCount) {

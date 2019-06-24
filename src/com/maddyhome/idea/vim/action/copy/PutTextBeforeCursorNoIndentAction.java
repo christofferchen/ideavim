@@ -23,12 +23,13 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.actionSystem.EditorAction;
 import com.maddyhome.idea.vim.VimPlugin;
 import com.maddyhome.idea.vim.command.Argument;
+import com.maddyhome.idea.vim.common.Register;
+import com.maddyhome.idea.vim.group.copy.PutData;
 import com.maddyhome.idea.vim.handler.ChangeEditorActionHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-/**
- */
+
 public class PutTextBeforeCursorNoIndentAction extends EditorAction {
   public PutTextBeforeCursorNoIndentAction() {
     super(new ChangeEditorActionHandler() {
@@ -38,7 +39,12 @@ public class PutTextBeforeCursorNoIndentAction extends EditorAction {
                              int count,
                              int rawCount,
                              @Nullable Argument argument) {
-        return VimPlugin.getCopy().putText(editor, context, count, false, false, true);
+        final Register lastRegister = VimPlugin.getRegister().getLastRegister();
+
+        final PutData.TextData textData =
+          lastRegister != null ? new PutData.TextData(lastRegister.getText(), lastRegister.getType(), lastRegister.getTransferableData()) : null;
+        final PutData putData = new PutData(textData, null, count, true, false, false, -1);
+        return VimPlugin.getPut().putText(editor, context, putData);
       }
     });
   }

@@ -7,125 +7,87 @@ import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.actionSystem.EditorActionHandler;
 import com.maddyhome.idea.vim.VimPlugin;
-import com.maddyhome.idea.vim.action.VimCommandAction;
-import com.maddyhome.idea.vim.action.motion.TextObjectAction;
 import com.maddyhome.idea.vim.command.Argument;
-import com.maddyhome.idea.vim.command.Command;
-import com.maddyhome.idea.vim.command.CommandFlags;
-import com.maddyhome.idea.vim.command.MappingMode;
+import com.maddyhome.idea.vim.command.CommandState;
 import com.maddyhome.idea.vim.common.TextRange;
 import com.maddyhome.idea.vim.extension.VimNonDisposableExtension;
 import com.maddyhome.idea.vim.handler.TextObjectActionHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.swing.*;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Set;
 import java.util.Stack;
 
 public class VimArgTextObjExtension extends VimNonDisposableExtension {
 
-  @NotNull @Override public String getName() { return "argtextobj"; }
-
-  /**
-   * A text object for an argument to a function definition or a call.
-   */
-  @SuppressWarnings("ComponentNotRegistered") // Manually registered
-  public static class ArgumentAction extends TextObjectAction {
-    ArgumentAction(boolean isInner) {
-      super(new Handler(isInner));
-    }
-
-    private static class Handler extends TextObjectActionHandler {
-      final boolean isInner;
-
-      private Handler(boolean isInner) {
-        // make via vaa work
-        super(true);
-        this.isInner = isInner;
-      }
-
-      @Nullable
-      @Override
-      public TextRange getRange(@NotNull Editor editor, @NotNull Caret caret, @NotNull DataContext context, int count, int rawCount, @Nullable Argument argument) {
-        final ArgBoundsFinder finder = new ArgBoundsFinder(editor.getDocument());
-        int pos = editor.getCaretModel().getOffset();
-        final int selStart = editor.getSelectionModel().getSelectionStart();
-        final int selEnd = editor.getSelectionModel().getSelectionEnd();
-        if (selStart != selEnd) {
-          pos = Math.min(selStart, selEnd);
-        }
-        int left = 0;
-        for (int i = 0; i < count; ++i) {
-          if (!finder.findBoundsAt(pos)) {
-            VimPlugin.indicateError();
-            return null;
-          }
-          if (isInner && (i == 0 || i == count - 1)) {
-            finder.adjustForInner();
-          } else {
-            finder.adjustForOuter();
-          }
-          if (i == 0) {
-            left = finder.getLeftBound();
-          }
-          pos = finder.getRightBound();
-        }
-        return new TextRange(left, finder.getRightBound() - 1);
-      }
-    }
-  }
-
-  private static class VimArgumentCommandAction extends VimCommandAction {
-    final private Set<List<KeyStroke>> keySet;
-
-    VimArgumentCommandAction(@NotNull EditorActionHandler defaultHandler, @NotNull String keyString) {
-      super(defaultHandler);
-      this.keySet = parseKeysSet(keyString);
-    }
-
-    @NotNull
-    @Override
-    public Set<MappingMode> getMappingModes() {
-      return MappingMode.VO;
-    }
-
-    @NotNull
-    @Override
-    public Set<List<KeyStroke>> getKeyStrokesSet() {
-      return keySet;
-    }
-
-    @NotNull
-    @Override
-    public Command.Type getType() {
-      return Command.Type.MOTION;
-    }
-
-    @Override
-    public EnumSet<CommandFlags> getFlags() {
-      return EnumSet.of(CommandFlags.FLAG_MOT_CHARACTERWISE, CommandFlags.FLAG_MOT_INCLUSIVE, CommandFlags.FLAG_TEXT_BLOCK);
-    }
-
+  @NotNull
+  @Override
+  public String getName() {
+    return "argtextobj";
   }
 
   @Override
   protected void initOnce() {
-    addTextObject(new ArgumentAction(true), "VimArgTextObjMotionTextInnerArgument", "ia");
-    addTextObject(new ArgumentAction(false), "VimArgTextObjMotionTextOuterArgument", "aa");
+    addTextObject(new InnerArgumentAction(), "VimArgTextObjMotionTextInnerArgument", "ia");
+    addTextObject(new OuterArgumentAction(), "VimArgTextObjMotionTextOuterArgument", "aa");
   }
 
   private void addTextObject(@NotNull ArgumentAction innerArgumentAction, @NotNull String actionId, @NotNull String keyString) {
     final ActionManager aMgr = ActionManager.getInstance();
-    @Nullable  ArgumentAction anAction = (ArgumentAction)aMgr.getAction(actionId);
+    @Nullable ArgumentAction anAction = (ArgumentAction) aMgr.getAction(actionId);
     if (anAction == null) {
       anAction = innerArgumentAction;
       aMgr.registerAction(actionId, anAction, VimPlugin.getPluginId());
     }
 
-    VimPlugin.getKey().registerCommandAction(new VimArgumentCommandAction(anAction.getHandler(), keyString), actionId);
+    if (innerArgumentAction instanceof InnerArgumentAction) {
+      VimPlugin.getKey().registerCommandAction(new InnerVimArgumentCommandAction(keyString), actionId);
+    } else {
+      VimPlugin.getKey().registerCommandAction(new OuterVimArgumentCommandAction(keyString), actionId);
+    }
+  }
+
+  /**
+   * A text object for an argument to a function definition or a call.
+   */
+  @SuppressWarnings("ComponentNotRegistered") // Manually registered
+  public static class InnerArgumentAction extends ArgumentAction {
+    @NotNull
+    @Override
+    public TextObjectActionHandler makeTextObjectHandler() {
+      return new VimArgTextObjExtension.Handler(true);
+    }
+  }
+
+  public static class OuterArgumentAction extends ArgumentAction {
+    @NotNull
+    @Override
+    public TextObjectActionHandler makeTextObjectHandler() {
+      return new VimArgTextObjExtension.Handler(false);
+    }
+  }
+
+  private static class InnerVimArgumentCommandAction extends VimArgumentCommandAction {
+    InnerVimArgumentCommandAction(@NotNull String keyString) {
+      super(keyString);
+    }
+
+    @NotNull
+    @Override
+    protected EditorActionHandler makeActionHandler() {
+      return new Handler(true);
+    }
+  }
+
+  private static class OuterVimArgumentCommandAction extends VimArgumentCommandAction {
+    OuterVimArgumentCommandAction(@NotNull String keyString) {
+      super(keyString);
+    }
+
+    @NotNull
+    @Override
+    protected EditorActionHandler makeActionHandler() {
+      return new Handler(false);
+    }
   }
 
   /**
@@ -133,20 +95,50 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
    * position
    */
   private static class ArgBoundsFinder {
+    final private static String QUOTES = "\"\'";
+    // NOTE: brackets must match by index and ordered by rank.
+    final private static String OPEN_BRACKETS = "[{(<";
+    final private static String CLOSE_BRACKETS = "]})>";
     final private CharSequence text;
     final private Document document;
     private int leftBound;
     private int rightBound;
     private int leftBracket;
     private int rightBracket;
-    final private static String QUOTES = "\"\'";
-    // NOTE: brackets must match by index and ordered by rank.
-    final private static String OPEN_BRACKETS = "[{(<";
-    final private static String CLOSE_BRACKETS = "]})>";
 
     ArgBoundsFinder(@NotNull Document document) {
       this.text = document.getImmutableCharSequence();
       this.document = document;
+    }
+
+    static private char matchingBracket(char ch) {
+      int idx = CLOSE_BRACKETS.indexOf(ch);
+      if (idx != -1) {
+        return OPEN_BRACKETS.charAt(idx);
+      } else {
+        assert isOpenBracket(ch);
+        idx = OPEN_BRACKETS.indexOf(ch);
+        return CLOSE_BRACKETS.charAt(idx);
+      }
+    }
+
+    static private boolean isCloseBracket(final int ch) {
+      return CLOSE_BRACKETS.indexOf(ch) != -1;
+    }
+
+    static private boolean isOpenBracket(final int ch) {
+      return OPEN_BRACKETS.indexOf(ch) != -1;
+    }
+
+    static private boolean isQuoteChar(final int ch) {
+      return QUOTES.indexOf(ch) != -1;
+    }
+
+    /**
+     * @return rank of a bracket.
+     */
+    static int getBracketPrio(char ch) {
+      return Math.max(OPEN_BRACKETS.indexOf(ch), CLOSE_BRACKETS.indexOf(ch));
     }
 
     /**
@@ -254,7 +246,6 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
       return (idEnd - i) > 0 && Character.isJavaIdentifierStart(getCharAt(i + 1));
     }
 
-
     /**
      * Detects if current position is inside a quoted string and adjusts
      * left and right bounds to the boundaries of the string.
@@ -298,25 +289,6 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
       }
     }
 
-    static private char matchingBracket(char ch) {
-      int idx = CLOSE_BRACKETS.indexOf(ch);
-      if (idx != -1) {
-        return OPEN_BRACKETS.charAt(idx);
-      } else {
-        assert isOpenBracket(ch);
-        idx = OPEN_BRACKETS.indexOf(ch);
-        return CLOSE_BRACKETS.charAt(idx);
-      }
-    }
-
-    static private boolean isCloseBracket(final int ch) {
-      return CLOSE_BRACKETS.indexOf(ch) != -1;
-    }
-
-    static private boolean isOpenBracket(final int ch) {
-      return OPEN_BRACKETS.indexOf(ch) != -1;
-    }
-
     private void findLeftBound() {
       while (leftBound > leftBracket) {
         final char ch = getCharAt(leftBound);
@@ -336,10 +308,6 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
 
     private boolean isQuote(final int i) {
       return QUOTES.indexOf(getCharAt(i)) != -1;
-    }
-
-    static private boolean isQuoteChar(final int ch) {
-      return QUOTES.indexOf(ch) != -1;
     }
 
     private char getCharAt(int logicalOffset) {
@@ -383,32 +351,6 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
         --i;
       }
       return i;
-    }
-
-    /**
-     * Interface to parametrise S-expression traversal direction.
-     */
-    abstract static class SexpDirection {
-      abstract int delta();
-
-      abstract boolean isOpenBracket(char ch);
-
-      abstract boolean isCloseBracket(char ch);
-
-      abstract int skipQuotedText(int pos, int start, int end, ArgBoundsFinder self);
-
-      static final SexpDirection FORWARD = new SexpDirection() {
-        @Override int delta() { return 1; }
-        @Override boolean isOpenBracket(char ch) { return ArgBoundsFinder.isOpenBracket(ch); }
-        @Override boolean isCloseBracket(char ch) { return ArgBoundsFinder.isCloseBracket(ch); }
-        @Override int skipQuotedText(int pos, int start, int end, ArgBoundsFinder self) { return self.skipQuotedTextForward(pos, end); }
-      };
-      static final SexpDirection BACKWARD = new SexpDirection() {
-        @Override int delta() { return -1; }
-        @Override boolean isOpenBracket(char ch) { return ArgBoundsFinder.isCloseBracket(ch); }
-        @Override boolean isCloseBracket(char ch) { return ArgBoundsFinder.isOpenBracket(ch); }
-        @Override int skipQuotedText(int pos, int start, int end, ArgBoundsFinder self) { return self.skipQuotedTextBackward(pos, start); }
-      };
     }
 
     /**
@@ -461,13 +403,6 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
       } else {
         return start + dir.delta();
       }
-    }
-
-    /**
-     * @return rank of a bracket.
-     */
-    static int getBracketPrio(char ch) {
-      return Math.max(OPEN_BRACKETS.indexOf(ch), CLOSE_BRACKETS.indexOf(ch));
     }
 
     /**
@@ -555,6 +490,103 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
       }
       return true;
     }
+
+    /**
+     * Interface to parametrise S-expression traversal direction.
+     */
+    abstract static class SexpDirection {
+      static final SexpDirection FORWARD = new SexpDirection() {
+        @Override
+        int delta() {
+          return 1;
+        }
+
+        @Override
+        boolean isOpenBracket(char ch) {
+          return ArgBoundsFinder.isOpenBracket(ch);
+        }
+
+        @Override
+        boolean isCloseBracket(char ch) {
+          return ArgBoundsFinder.isCloseBracket(ch);
+        }
+
+        @Override
+        int skipQuotedText(int pos, int start, int end, ArgBoundsFinder self) {
+          return self.skipQuotedTextForward(pos, end);
+        }
+      };
+      static final SexpDirection BACKWARD = new SexpDirection() {
+        @Override
+        int delta() {
+          return -1;
+        }
+
+        @Override
+        boolean isOpenBracket(char ch) {
+          return ArgBoundsFinder.isCloseBracket(ch);
+        }
+
+        @Override
+        boolean isCloseBracket(char ch) {
+          return ArgBoundsFinder.isOpenBracket(ch);
+        }
+
+        @Override
+        int skipQuotedText(int pos, int start, int end, ArgBoundsFinder self) {
+          return self.skipQuotedTextBackward(pos, start);
+        }
+      };
+
+      abstract int delta();
+
+      abstract boolean isOpenBracket(char ch);
+
+      abstract boolean isCloseBracket(char ch);
+
+      abstract int skipQuotedText(int pos, int start, int end, ArgBoundsFinder self);
+    }
   }
 
+  private static class Handler extends TextObjectActionHandler {
+    final boolean isInner;
+
+    private Handler(boolean isInner) {
+      this.isInner = isInner;
+    }
+
+    @Nullable
+    @Override
+    public TextRange getRange(@NotNull Editor editor,
+                              @NotNull Caret caret,
+                              @NotNull DataContext context,
+                              int count,
+                              int rawCount,
+                              @Nullable Argument argument) {
+      final ArgBoundsFinder finder = new ArgBoundsFinder(editor.getDocument());
+      int pos = caret.getOffset();
+      if (CommandState.getInstance(editor).getMode() == CommandState.Mode.VISUAL) {
+//          if (CaretData.getVisualStart(caret) != CaretData.getVisualEnd(caret)) {
+//            pos = Math.min(CaretDataKt.getVisualStart(caret), CaretData.getVisualEnd(caret));
+//          }
+      }
+      int left = 0;
+      for (int i = 0; i < count; ++i) {
+        if (!finder.findBoundsAt(pos)) {
+          VimPlugin.indicateError();
+          return null;
+        }
+        if (isInner && (i == 0 || i == count - 1)) {
+          finder.adjustForInner();
+        } else {
+          finder.adjustForOuter();
+        }
+        if (i == 0) {
+          left = finder.getLeftBound();
+        }
+        pos = finder.getRightBound();
+      }
+      return new TextRange(left, finder.getRightBound() - 1);
+    }
+  }
 }

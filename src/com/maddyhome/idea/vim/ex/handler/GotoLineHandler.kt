@@ -24,41 +24,42 @@ import com.intellij.openapi.editor.Editor
 import com.maddyhome.idea.vim.VimPlugin
 import com.maddyhome.idea.vim.command.CommandFlags
 import com.maddyhome.idea.vim.ex.CommandHandler
-import com.maddyhome.idea.vim.ex.CommandHandler.Flag.ARGUMENT_OPTIONAL
-import com.maddyhome.idea.vim.ex.CommandHandler.Flag.RANGE_REQUIRED
+import com.maddyhome.idea.vim.ex.CommandHandlerFlags
+import com.maddyhome.idea.vim.ex.CommandName
 import com.maddyhome.idea.vim.ex.ExCommand
 import com.maddyhome.idea.vim.ex.flags
 import com.maddyhome.idea.vim.group.MotionGroup
-import com.maddyhome.idea.vim.handler.CaretOrder
 import com.maddyhome.idea.vim.helper.EditorHelper
+import com.maddyhome.idea.vim.helper.enumSetOf
+import java.util.*
 
 /**
  * This handles Ex commands that just specify a range which translates to moving the cursor to the line given by the
  * range.
  */
-class GotoLineHandler : CommandHandler(
-        flags(RANGE_REQUIRED, ARGUMENT_OPTIONAL),
-        flags(CommandFlags.FLAG_MOT_EXCLUSIVE),
-        true, CaretOrder.DECREASING_OFFSET
-) {
-    /**
-     * Moves the cursor to the line entered by the user
-     *
-     * @param editor  The editor to perform the action in
-     * @param caret   The caret to perform the action on
-     * @param context The data context
-     * @param cmd     The complete Ex command including range, command, and arguments
-     * @return True if able to perform the command, false if not
-     */
-    override fun execute(editor: Editor, caret: Caret, context: DataContext, cmd: ExCommand): Boolean {
-        val line = Math.min(cmd.getLine(editor, caret, context), EditorHelper.getLineCount(editor) - 1)
+class GotoLineHandler : CommandHandler.ForEachCaret() {
+  override val names: Array<CommandName> = arrayOf()
+  override val argFlags: CommandHandlerFlags = flags(RangeFlag.RANGE_REQUIRED, ArgumentFlag.ARGUMENT_OPTIONAL)
+  override val optFlags: EnumSet<CommandFlags> = enumSetOf(CommandFlags.FLAG_MOT_EXCLUSIVE)
 
-        if (line >= 0) {
-            MotionGroup.moveCaret(editor, caret, VimPlugin.getMotion().moveCaretToLineStartSkipLeading(editor, line))
-            return true
-        }
+  /**
+   * Moves the cursor to the line entered by the user
+   *
+   * @param editor  The editor to perform the action in
+   * @param caret   The caret to perform the action on
+   * @param context The data context
+   * @param cmd     The complete Ex command including range, command, and arguments
+   * @return True if able to perform the command, false if not
+   */
+  override fun execute(editor: Editor, caret: Caret, context: DataContext, cmd: ExCommand): Boolean {
+    val line = Math.min(cmd.getLine(editor, caret, context), EditorHelper.getLineCount(editor) - 1)
 
-        MotionGroup.moveCaret(editor, caret, 0)
-        return false
+    if (line >= 0) {
+      MotionGroup.moveCaret(editor, caret, VimPlugin.getMotion().moveCaretToLineStartSkipLeading(editor, line))
+      return true
     }
+
+    MotionGroup.moveCaret(editor, caret, 0)
+    return false
+  }
 }

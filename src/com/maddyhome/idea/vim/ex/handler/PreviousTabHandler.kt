@@ -22,18 +22,15 @@ import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.editor.Editor
 import com.maddyhome.idea.vim.VimPlugin
 import com.maddyhome.idea.vim.ex.CommandHandler
-import com.maddyhome.idea.vim.ex.CommandHandler.Flag.ARGUMENT_OPTIONAL
-import com.maddyhome.idea.vim.ex.CommandHandler.Flag.RANGE_FORBIDDEN
 import com.maddyhome.idea.vim.ex.ExCommand
 import com.maddyhome.idea.vim.ex.commands
 import com.maddyhome.idea.vim.ex.flags
 
-class PreviousTabHandler : CommandHandler(
-        commands("tabp[revious]", "tabN[ext]"),
-        flags(ARGUMENT_OPTIONAL, RANGE_FORBIDDEN)
-) {
-    override fun execute(editor: Editor, context: DataContext, cmd: ExCommand): Boolean {
-        VimPlugin.getMotion().moveCaretGotoPreviousTab(editor, context, cmd.argument.toIntOrNull() ?: 0)
-        return true
-    }
+class PreviousTabHandler : CommandHandler.SingleExecution() {
+  override val names = commands("tabp[revious]", "tabN[ext]")
+  override val argFlags = flags(RangeFlag.RANGE_FORBIDDEN, ArgumentFlag.ARGUMENT_OPTIONAL)
+  override fun execute(editor: Editor, context: DataContext, cmd: ExCommand): Boolean {
+    VimPlugin.getMotion().moveCaretGotoPreviousTab(editor, context, cmd.argument.toIntOrNull() ?: 0)
+    return true
+  }
 }

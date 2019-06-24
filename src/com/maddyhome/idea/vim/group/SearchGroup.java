@@ -36,8 +36,8 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.Ref;
 import com.maddyhome.idea.vim.VimPlugin;
-import com.maddyhome.idea.vim.command.CommandState;
 import com.maddyhome.idea.vim.command.CommandFlags;
+import com.maddyhome.idea.vim.command.CommandState;
 import com.maddyhome.idea.vim.command.SelectionType;
 import com.maddyhome.idea.vim.common.CharacterPosition;
 import com.maddyhome.idea.vim.common.TextRange;
@@ -82,7 +82,7 @@ public class SearchGroup {
                                   @NotNull String excmd, String exarg) {
     // Explicitly exit visual mode here, so that visual mode marks don't change when we move the cursor to a match.
     if (CommandState.getInstance(editor).getMode() == CommandState.Mode.VISUAL) {
-      VimPlugin.getMotion().exitVisual(editor);
+      VimPlugin.getVisualMotion().exitVisual(editor);
     }
 
     CharPointer cmd = new CharPointer(new StringBuffer(exarg));
@@ -647,6 +647,56 @@ public class SearchGroup {
     return max;
   }
 
+  @Nullable
+  public TextRange getNextSearchRange(@NotNull Editor editor, int count, boolean forwards) {
+    editor.getCaretModel().removeSecondaryCarets();
+    TextRange current = findUnderCaret(editor);
+
+    if (current == null || CommandStateHelper.inVisualMode(editor) && atEdgeOfGnRange(current, editor, forwards)) {
+      current = findNextSearchForGn(editor, count, forwards);
+    }
+    else if (count > 1) {
+      current = findNextSearchForGn(editor, count - 1, forwards);
+    }
+    return current;
+  }
+
+  private boolean atEdgeOfGnRange(@NotNull TextRange nextRange, @NotNull Editor editor, boolean forwards) {
+    int currentPosition = editor.getCaretModel().getOffset();
+    if (forwards) {
+      return nextRange.getEndOffset() - VimPlugin.getVisualMotion().getSelectionAdj() == currentPosition;
+    }
+    else {
+      return nextRange.getStartOffset() == currentPosition;
+    }
+  }
+
+  @Nullable
+  private TextRange findNextSearchForGn(@NotNull Editor editor, int count, boolean forwards) {
+    if (forwards) {
+      return findIt(editor, editor.getCaretModel().getOffset(), count, 1, false, true, false, true);
+    } else {
+      return searchBackward(editor, editor.getCaretModel().getOffset(), count);
+    }
+  }
+
+  @Nullable
+  private TextRange findUnderCaret(@NotNull Editor editor) {
+    final TextRange backSearch = searchBackward(editor, editor.getCaretModel().getOffset() + 1, 1);
+    if (backSearch == null) return null;
+    return backSearch.contains(editor.getCaretModel().getOffset()) ? backSearch : null;
+  }
+
+  @Nullable
+  private TextRange searchBackward(@NotNull Editor editor, int offset, int count) {
+    // Backward search returns wrongs end offset for some cases. That's why we should perform additional forward search
+    final TextRange foundBackward = findIt(editor, offset, count, -1, false, true, false, true);
+    if (foundBackward == null) return null;
+    int startOffset = foundBackward.getStartOffset() - 1;
+    if (startOffset < 0) startOffset = EditorHelper.getFileSize(editor);
+    return findIt(editor, startOffset, 1, 1, false, true, false, true);
+  }
+
   private static int distance(@NotNull TextRange range, int pos, boolean forwards, int size) {
     final int start = range.getStartOffset();
     if (start <= pos) {
@@ -819,10 +869,8 @@ public class SearchGroup {
   @Nullable
   private TextRange findIt(@NotNull Editor editor, int startOffset, int count, int dir,
                            boolean noSmartCase, boolean wrap, boolean showMessages, boolean wholeFile) {
-    TextRange res = null;
-
     if (lastSearch == null || lastSearch.length() == 0) {
-      return res;
+      return null;
     }
 
     /*
@@ -838,10 +886,6 @@ public class SearchGroup {
     regmatch.rmm_ic = shouldIgnoreCase(lastSearch, noSmartCase);
     sp = new RegExp();
     regmatch.regprog = sp.vim_regcomp(lastSearch, 1);
-    if (regmatch == null) {
-      if (logger.isDebugEnabled()) logger.debug("bad pattern: " + lastSearch);
-      return res;
-    }
 
     /*
     int extra_col = 1;

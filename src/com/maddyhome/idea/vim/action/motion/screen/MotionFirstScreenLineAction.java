@@ -24,20 +24,19 @@ import com.intellij.openapi.editor.Editor;
 import com.maddyhome.idea.vim.VimPlugin;
 import com.maddyhome.idea.vim.action.motion.MotionEditorAction;
 import com.maddyhome.idea.vim.command.Argument;
-import com.maddyhome.idea.vim.handler.MotionEditorActionHandler;
+import com.maddyhome.idea.vim.handler.MotionActionHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-/**
- */
+
 public class MotionFirstScreenLineAction extends MotionEditorAction {
   public MotionFirstScreenLineAction() {
     super(new Handler());
   }
 
-  private static class Handler extends MotionEditorActionHandler {
+  private static class Handler extends MotionActionHandler.ForEachCaret {
     public Handler() {
-      super(true);
+      super();
     }
 
     @Override

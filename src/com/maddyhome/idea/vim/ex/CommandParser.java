@@ -40,11 +40,74 @@ import java.util.regex.Pattern;
  * executes Ex commands entered by the user.
  */
 public class CommandParser {
+  private static final int MAX_RECURSION = 100;
   public static final int RES_EMPTY = 1;
   public static final int RES_ERROR = 1;
   public static final int RES_READONLY = 1;
   public static final int RES_DONT_REOPEN = 4;
   public static final Pattern TRIM_WHITESPACE = Pattern.compile("[ \\t]*(.*)[ \\t\\n\\r]+", Pattern.DOTALL);
+  private final CommandHandler[] myHandlers = new CommandHandler[] {
+    new ActionListHandler(),
+    new AsciiHandler(),
+    new CmdFilterHandler(),
+    new CmdHandler(),
+    new CmdClearHandler(),
+    new CopyTextHandler(),
+    new DelCmdHandler(),
+    new DeleteLinesHandler(),
+    new DigraphHandler(),
+    new DumpLineHandler(),
+    new EditFileHandler(),
+    new ActionHandler(),
+    new EchoHandler(),
+    new ExitHandler(),
+    new FindClassHandler(),
+    new FindFileHandler(),
+    new FindSymbolHandler(),
+    new GotoCharacterHandler(),
+    //new GotoLineHandler(); - not needed here
+    new HelpHandler(),
+    new HistoryHandler(),
+    new JoinLinesHandler(),
+    new JumpsHandler(),
+    new LetHandler(),
+    new MapHandler(),
+    new MarkHandler(),
+    new MarksHandler(),
+    new MoveTextHandler(),
+    new NextFileHandler(),
+    new NoHLSearchHandler(),
+    new OnlyHandler(),
+    new PreviousFileHandler(),
+    new PromptFindHandler(),
+    new PromptReplaceHandler(),
+    new PutLinesHandler(),
+    new QuitHandler(),
+    new RedoHandler(),
+    new RegistersHandler(),
+    new RepeatHandler(),
+    new SelectFileHandler(),
+    new SelectFirstFileHandler(),
+    new SelectLastFileHandler(),
+    new SetHandler(),
+    new ShiftLeftHandler(),
+    new ShiftRightHandler(),
+    new SourceHandler(),
+    new SortHandler(),
+    new SplitHandler(),
+    new SubstituteHandler(),
+    new UndoHandler(),
+    new WriteAllHandler(),
+    new WriteHandler(),
+    new WriteNextFileHandler(),
+    new WritePreviousFileHandler(),
+    new WriteQuitHandler(),
+    new YankLinesHandler(),
+    new ShellHandler(),
+    new NextTabHandler(),
+    new PreviousTabHandler(),
+    new TabOnlyHandler()
+};
 
   /**
    * There is only one parser.
@@ -70,62 +133,9 @@ public class CommandParser {
   public void registerHandlers() {
     if (registered) return;
 
-    new ActionListHandler();
-    new AsciiHandler();
-    new CmdFilterHandler();
-    new CopyTextHandler();
-    new DeleteLinesHandler();
-    new DigraphHandler();
-    new DumpLineHandler();
-    new EditFileHandler();
-    new ActionHandler();
-    new EchoHandler();
-    new ExitHandler();
-    new FindClassHandler();
-    new FindFileHandler();
-    new FindSymbolHandler();
-    new GotoCharacterHandler();
-    //new GotoLineHandler(); - not needed here
-    new HelpHandler();
-    new HistoryHandler();
-    new JoinLinesHandler();
-    new JumpsHandler();
-    new LetHandler();
-    new MapHandler();
-    new MarkHandler();
-    new MarksHandler();
-    new MoveTextHandler();
-    new NextFileHandler();
-    new NoHLSearchHandler();
-    new OnlyHandler();
-    new PreviousFileHandler();
-    new PromptFindHandler();
-    new PromptReplaceHandler();
-    new PutLinesHandler();
-    new QuitHandler();
-    new RedoHandler();
-    new RegistersHandler();
-    new RepeatHandler();
-    new SelectFileHandler();
-    new SelectFirstFileHandler();
-    new SelectLastFileHandler();
-    new SetHandler();
-    new ShiftLeftHandler();
-    new ShiftRightHandler();
-    new SourceHandler();
-    new SortHandler();
-    new SplitHandler();
-    new SubstituteHandler();
-    new UndoHandler();
-    new WriteAllHandler();
-    new WriteHandler();
-    new WriteNextFileHandler();
-    new WritePreviousFileHandler();
-    new WriteQuitHandler();
-    new YankLinesHandler();
-    new ShellHandler();
-    new NextTabHandler();
-    new PreviousTabHandler();
+    for (CommandHandler handler : myHandlers) {
+      handler.register();
+    }
 
     registered = true;
     //logger.debug("root=" + root);
@@ -164,14 +174,51 @@ public class CommandParser {
    */
   public int processCommand(@NotNull Editor editor, @NotNull DataContext context, @NotNull String cmd,
                             int count) throws ExException {
+    return processCommand(editor, context, cmd, count, MAX_RECURSION);
+  }
+
+  /**
+   * Parse and execute an Ex command entered by the user
+   *
+   * @param editor  The editor to run the command in
+   * @param context The data context
+   * @param cmd     The text entered by the user
+   * @param count   The count entered before the colon
+   * @param aliasCountdown A countdown for the depth of alias recursion that is allowed
+   * @return A bitwise collection of flags, if any, from the result of running the command.
+   * @throws ExException if any part of the command is invalid or unknown
+   */
+  private int processCommand(@NotNull Editor editor, @NotNull DataContext context, @NotNull String cmd,
+                             int count, int aliasCountdown) throws ExException {
     // Nothing entered
     int result = 0;
     if (cmd.length() == 0) {
       return result | RES_EMPTY;
     }
 
-    // Save the command history
-    VimPlugin.getHistory().addEntry(HistoryGroup.COMMAND, cmd);
+    // Only save the command to the history if it is at the top of the stack.
+    // We don't want to save the aliases that will be executed, only the actual
+    // user input.
+    if (aliasCountdown == MAX_RECURSION) {
+      // Save the command history
+      VimPlugin.getHistory().addEntry(HistoryGroup.COMMAND, cmd);
+    }
+
+    // If there is a command alias for the entered text, then process the alias and return that
+    // instead of the original command.
+    if (VimPlugin.getCommand().isAlias(cmd)) {
+      if (aliasCountdown > 0) {
+        String commandAlias = VimPlugin.getCommand().getAliasCommand(cmd, count);
+        if (commandAlias.isEmpty()) {
+          return result |= RES_ERROR;
+        }
+        return processCommand(editor, context, commandAlias, count, aliasCountdown - 1);
+      } else {
+        VimPlugin.showMessage("Recursion detected, maximum alias depth reached.");
+        VimPlugin.indicateError();
+        return result |= RES_ERROR;
+      }
+    }
 
     // Parse the command
     final ExCommand command = parse(cmd);
@@ -182,19 +229,19 @@ public class CommandParser {
       throw new InvalidCommandException(message, cmd);
     }
 
-    if (handler.getArgFlags().contains(CommandHandler.Flag.WRITABLE) && !editor.getDocument().isWritable()) {
+    if (handler.getArgFlags().getFlags().contains(CommandHandler.Flag.WRITABLE) && !editor.getDocument().isWritable()) {
       VimPlugin.indicateError();
       return result | RES_READONLY;
     }
 
     // Run the command
     boolean ok = handler.process(editor, context, command, count);
-    if (ok && !handler.getArgFlags().contains(CommandHandler.Flag.DONT_SAVE_LAST)) {
+    if (ok && !handler.getArgFlags().getFlags().contains(CommandHandler.Flag.DONT_SAVE_LAST)) {
       VimPlugin.getRegister().storeTextInternal(editor, new TextRange(-1, -1), cmd,
-                                                                  SelectionType.CHARACTER_WISE, ':', false);
+              SelectionType.CHARACTER_WISE, ':', false);
     }
 
-    if (handler.getArgFlags().contains(CommandHandler.Flag.DONT_REOPEN)) {
+    if (handler.getArgFlags().getFlags().contains(CommandHandler.Flag.DONT_REOPEN)) {
       result |= RES_DONT_REOPEN;
     }
 
@@ -560,11 +607,7 @@ public class CommandParser {
    */
   public void addHandler(@NotNull CommandHandler handler) {
     // Iterator through each command name alias
-    CommandName[] names = handler.getNames();
-    if (names == null) {
-      return;
-    }
-    for (CommandName name : names) {
+    for (CommandName name : handler.getNames()) {
       CommandNode node = root;
       String text = name.getRequired();
       // Build a tree for each character in the required portion of the command name

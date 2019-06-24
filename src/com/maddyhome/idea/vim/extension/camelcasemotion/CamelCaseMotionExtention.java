@@ -16,15 +16,15 @@ public class CamelCaseMotionExtention extends VimNonDisposableExtension {
   protected void initOnce() {
     final KeyGroup keyGroup = VimPlugin.getKey();
     keyGroup.registerAction(MappingMode.NVO, "VimMotionCamelEndLeft", Command.Type.MOTION, EnumSet.of(CommandFlags.FLAG_MOT_INCLUSIVE),
-            new Shortcut("\\ge"));
+      new Shortcut("\\ge"));
     keyGroup.registerAction(MappingMode.NVO, "VimMotionCamelEndRight", Command.Type.MOTION, EnumSet.of(CommandFlags.FLAG_MOT_INCLUSIVE),
-            new Shortcut("\\e"));
+      new Shortcut("\\e"));
     keyGroup.registerAction(MappingMode.NVO, "VimMotionCamelLeft", Command.Type.MOTION, EnumSet.of(CommandFlags.FLAG_MOT_EXCLUSIVE),
-            new Shortcut("\\b"));
+      new Shortcut("\\b"));
     keyGroup.registerAction(MappingMode.NVO, "VimMotionCamelRight", Command.Type.MOTION, EnumSet.of(CommandFlags.FLAG_MOT_EXCLUSIVE),
-            new Shortcut("\\w"));
+      new Shortcut("\\w"));
     keyGroup.registerAction(MappingMode.VO, "VimMotionInnerCamelCaseWord", Command.Type.MOTION,
-            EnumSet.of(CommandFlags.FLAG_MOT_CHARACTERWISE, CommandFlags.FLAG_MOT_INCLUSIVE), new Shortcut("i\\w"));
+      EnumSet.of(CommandFlags.FLAG_MOT_CHARACTERWISE, CommandFlags.FLAG_MOT_INCLUSIVE), new Shortcut("i\\w"));
   }
 
   @NotNull

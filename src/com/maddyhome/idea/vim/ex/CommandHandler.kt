@@ -21,30 +21,38 @@ package com.maddyhome.idea.vim.ex
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.editor.Caret
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.util.Ref
 import com.maddyhome.idea.vim.VimPlugin
-import com.maddyhome.idea.vim.command.CommandState
 import com.maddyhome.idea.vim.command.CommandFlags
-import com.maddyhome.idea.vim.handler.CaretOrder
-import com.maddyhome.idea.vim.handler.ExecuteMethodNotOverriddenException
-import com.maddyhome.idea.vim.helper.EditorHelper
+import com.maddyhome.idea.vim.command.CommandState
 import com.maddyhome.idea.vim.helper.MessageHelper
 import com.maddyhome.idea.vim.helper.Msg
-
-import java.util.EnumSet
+import com.maddyhome.idea.vim.helper.inVisualMode
+import com.maddyhome.idea.vim.helper.noneOfEnum
+import java.util.*
 
 /**
  * Base class for all Ex command handlers.
  */
-abstract class CommandHandler {
+sealed class CommandHandler {
 
-  val names: Array<CommandName>?
-  val argFlags: EnumSet<Flag>
-  private val optFlags: EnumSet<CommandFlags>
+  abstract val names: Array<CommandName>
+  abstract val argFlags: CommandHandlerFlags
+  protected open val optFlags: EnumSet<CommandFlags> = noneOfEnum()
 
-  private val runForEachCaret: Boolean
-  private val caretOrder: CaretOrder
+  abstract class ForEachCaret : CommandHandler() {
+    abstract fun execute(editor: Editor, caret: Caret, context: DataContext, cmd: ExCommand): Boolean
+  }
 
-  enum class Flag {
+  abstract class SingleExecution : CommandHandler() {
+    abstract fun execute(editor: Editor, context: DataContext, cmd: ExCommand): Boolean
+  }
+
+  fun register() {
+    CommandParser.getInstance().addHandler(this)
+  }
+
+  enum class RangeFlag {
     /**
      * Indicates that a range must be specified with this command
      */
@@ -58,6 +66,14 @@ abstract class CommandHandler {
      */
     RANGE_FORBIDDEN,
     /**
+     * Indicates that the command takes a count, not a range - effects default
+     * Works like RANGE_OPTIONAL
+     */
+    RANGE_IS_COUNT
+  }
+
+  enum class ArgumentFlag {
+    /**
      * Indicates that an argument must be specified with this command
      */
     ARGUMENT_REQUIRED,
@@ -68,12 +84,10 @@ abstract class CommandHandler {
     /**
      * Indicates that an argument can't be specified for this command
      */
-    ARGUMENT_FORBIDDEN,
-    /**
-     * Indicates that the command takes a count, not a range - effects default
-     */
-    RANGE_IS_COUNT,
+    ARGUMENT_FORBIDDEN
+  }
 
+  enum class Flag {
     DONT_REOPEN,
 
     /**
@@ -84,40 +98,15 @@ abstract class CommandHandler {
      * Indicates that this command does not modify the editor
      */
     READ_ONLY,
-    DONT_SAVE_LAST
-  }
+    DONT_SAVE_LAST,
 
-  /**
-   * Create the handler
-   *
-   * [names] A list of names this command answers to
-   * [argFlags] - Range and Arguments commands
-   */
-  constructor(
-          names: Array<CommandName>?,
-          argFlags: EnumSet<Flag>,
-          runForEachCaret: Boolean = false,
-          caretOrder: CaretOrder = CaretOrder.NATIVE,
-          optFlags: EnumSet<CommandFlags> = EnumSet.noneOf<CommandFlags>(CommandFlags::class.java)
-  ) {
-    this.names = names
-    this.argFlags = argFlags
-    this.optFlags = optFlags
-
-    this.runForEachCaret = runForEachCaret
-    this.caretOrder = caretOrder
-
-    @Suppress("LeakingThis")
-    CommandParser.getInstance().addHandler(this)
-  }
-
-  constructor(argFlags: EnumSet<Flag>, optFlags: EnumSet<CommandFlags>, runForEachCaret: Boolean, caretOrder: CaretOrder) {
-    this.names = null
-    this.argFlags = argFlags
-    this.optFlags = optFlags
-
-    this.runForEachCaret = runForEachCaret
-    this.caretOrder = caretOrder
+    /**
+     * This command should not exit visual mode.
+     *
+     * Vim exits visual mode before command execution, but in this case :action will work incorrect.
+     *   With this flag visual mode will not be exited while command execution.
+     */
+    SAVE_VISUAL
   }
 
   /**
@@ -131,86 +120,66 @@ abstract class CommandHandler {
    */
   @Throws(ExException::class)
   fun process(editor: Editor, context: DataContext, cmd: ExCommand, count: Int): Boolean {
+
     // No range allowed
-    if (Flag.RANGE_FORBIDDEN in argFlags && cmd.ranges.size() != 0) {
+    if (RangeFlag.RANGE_FORBIDDEN == argFlags.rangeFlag && cmd.ranges.size() != 0) {
       VimPlugin.showMessage(MessageHelper.message(Msg.e_norange))
       throw NoRangeAllowedException()
     }
 
-    if (Flag.RANGE_REQUIRED in argFlags && cmd.ranges.size() == 0) {
+    if (RangeFlag.RANGE_REQUIRED == argFlags.rangeFlag && cmd.ranges.size() == 0) {
       VimPlugin.showMessage(MessageHelper.message(Msg.e_rangereq))
       throw MissingRangeException()
     }
 
+    if (RangeFlag.RANGE_IS_COUNT == argFlags.rangeFlag) {
+      cmd.ranges.setDefaultLine(1)
+    }
+
     // Argument required
-    if (Flag.ARGUMENT_REQUIRED in argFlags && cmd.argument.isEmpty()) {
+    if (ArgumentFlag.ARGUMENT_REQUIRED == argFlags.argumentFlag && cmd.argument.isEmpty()) {
       VimPlugin.showMessage(MessageHelper.message(Msg.e_argreq))
       throw MissingArgumentException()
     }
 
-    if (Flag.RANGE_IS_COUNT in argFlags) {
-      cmd.ranges.setDefaultLine(1)
+    if (ArgumentFlag.ARGUMENT_FORBIDDEN == argFlags.argumentFlag && cmd.argument.isNotEmpty()) {
+      VimPlugin.showMessage(MessageHelper.message(Msg.e_argforb))
+      throw NoArgumentAllowedException()
+    }
+    CommandState.getInstance(editor).flags = optFlags
+    if (editor.inVisualMode && Flag.SAVE_VISUAL !in argFlags.flags) {
+      VimPlugin.getVisualMotion().exitVisual(editor)
     }
 
-    CommandState.getInstance(editor).flags = optFlags
-
-    var res = true
+    val res = Ref.create(true)
     try {
-      if (runForEachCaret) {
-        EditorHelper.getOrderedCaretsList(editor, caretOrder).forEach { caret ->
-          var i = 0
-          while (i < count && res) {
-            try {
-              res = execute(editor, caret, context, cmd)
-            } catch (e: ExecuteMethodNotOverriddenException) {
-              return false
+      when (this) {
+        is ForEachCaret -> {
+          editor.caretModel.runForEachCaret({ caret ->
+            var i = 0
+            while (i++ < count && res.get()) {
+              res.set(execute(editor, caret, context, cmd))
             }
-
-            i++
-          }
+          }, true)
         }
-      } else {
-        var i = 0
-        while (i < count && res) {
-          try {
-            res = execute(editor, context, cmd)
-          } catch (e: ExecuteMethodNotOverriddenException) {
-            return false
+        is SingleExecution -> {
+          var i = 0
+          while (i++ < count && res.get()) {
+            res.set(execute(editor, context, cmd))
           }
-
-          i++
         }
       }
 
-      if (!res) {
+      if (!res.get()) {
         VimPlugin.indicateError()
       }
-      return res
+      return res.get()
     } catch (e: ExException) {
       VimPlugin.showMessage(e.message)
       VimPlugin.indicateError()
       return false
     }
   }
-
-  /**
-   * Performs the action of the handler.
-   *
-   * @param editor  The editor to perform the action in.
-   * @param context The data context
-   * @param cmd     The complete Ex command including range, command, and arguments
-   * @return True if able to perform the command, false if not
-   * @throws ExException if the range or arguments are invalid for the command
-   */
-  @Throws(ExException::class, ExecuteMethodNotOverriddenException::class)
-  open fun execute(editor: Editor, context: DataContext, cmd: ExCommand): Boolean {
-    if (!runForEachCaret) throw ExecuteMethodNotOverriddenException(this.javaClass)
-    return execute(editor, editor.caretModel.primaryCaret, context, cmd)
-  }
-
-  @Throws(ExException::class, ExecuteMethodNotOverriddenException::class)
-  open fun execute(editor: Editor, caret: Caret, context: DataContext, cmd: ExCommand): Boolean {
-    if (runForEachCaret) throw ExecuteMethodNotOverriddenException(this.javaClass)
-    return execute(editor, context, cmd)
-  }
 }
+
+data class CommandHandlerFlags(val rangeFlag: CommandHandler.RangeFlag, val argumentFlag: CommandHandler.ArgumentFlag, val flags: Set<CommandHandler.Flag>)

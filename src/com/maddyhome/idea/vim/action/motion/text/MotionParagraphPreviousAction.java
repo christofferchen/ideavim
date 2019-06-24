@@ -24,22 +24,17 @@ import com.intellij.openapi.editor.Editor;
 import com.maddyhome.idea.vim.VimPlugin;
 import com.maddyhome.idea.vim.action.motion.MotionEditorAction;
 import com.maddyhome.idea.vim.command.Argument;
-import com.maddyhome.idea.vim.handler.MotionEditorActionHandler;
+import com.maddyhome.idea.vim.handler.MotionActionHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-/**
- */
+
 public class MotionParagraphPreviousAction extends MotionEditorAction {
   public MotionParagraphPreviousAction() {
     super(new MotionParagraphPreviousHandler());
   }
 
-  private static class MotionParagraphPreviousHandler extends MotionEditorActionHandler {
-    public MotionParagraphPreviousHandler() {
-      super(true);
-    }
-
+  private static class MotionParagraphPreviousHandler extends MotionActionHandler.ForEachCaret {
     @Override
     public int getOffset(@NotNull Editor editor, @NotNull Caret caret, @NotNull DataContext context, int count,
                          int rawCount, @Nullable Argument argument) {
