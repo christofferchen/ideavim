@@ -423,6 +423,7 @@ public class ChangeGroup {
 
       @NotNull private final EditorMouseAdapter listener = new EditorMouseAdapter() {
         public void mouseClicked(@NotNull EditorMouseEvent event) {
+          VimPlugin.setEnabled(false);
           Editor editor = event.getEditor();
           if (!VimPlugin.isEnabled()) {
             return;
