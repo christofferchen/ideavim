@@ -21,11 +21,9 @@ import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.*;
 import com.intellij.openapi.editor.event.EditorFactoryEvent;
-import com.intellij.openapi.editor.event.EditorFactoryListener;
 import com.intellij.openapi.editor.ex.util.EditorUtil;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
-import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.fileEditor.impl.EditorTabbedContainer;
 import com.intellij.openapi.fileEditor.impl.EditorWindow;
@@ -33,11 +31,10 @@ import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.openapi.vfs.VirtualFileSystem;
-import com.maddyhome.idea.vim.EventFacade;
 import com.maddyhome.idea.vim.KeyHandler;
 import com.maddyhome.idea.vim.VimPlugin;
+import com.maddyhome.idea.vim.action.MotionEditorAction;
 import com.maddyhome.idea.vim.action.TextObjectAction;
-import com.maddyhome.idea.vim.action.motion.MotionEditorAction;
 import com.maddyhome.idea.vim.command.Argument;
 import com.maddyhome.idea.vim.command.Command;
 import com.maddyhome.idea.vim.command.CommandFlags;
@@ -47,10 +44,13 @@ import com.maddyhome.idea.vim.common.Mark;
 import com.maddyhome.idea.vim.common.TextRange;
 import com.maddyhome.idea.vim.ex.ExOutputModel;
 import com.maddyhome.idea.vim.group.visual.VisualGroupKt;
-import com.maddyhome.idea.vim.helper.*;
+import com.maddyhome.idea.vim.helper.CommandStateHelper;
+import com.maddyhome.idea.vim.helper.EditorHelper;
+import com.maddyhome.idea.vim.helper.SearchHelper;
+import com.maddyhome.idea.vim.helper.UserDataManager;
 import com.maddyhome.idea.vim.listener.VimListenerManager;
 import com.maddyhome.idea.vim.option.NumberOption;
-import com.maddyhome.idea.vim.option.Options;
+import com.maddyhome.idea.vim.option.OptionsManager;
 import com.maddyhome.idea.vim.ui.ExEntryPanel;
 import kotlin.ranges.IntProgression;
 import org.jetbrains.annotations.NotNull;
@@ -70,54 +70,25 @@ public class MotionGroup {
   public static final int LAST_t = 4;
   public static final int LAST_COLUMN = 9999;
 
-  /**
-   * Create the group
-   */
-  public MotionGroup() {
-    EventFacade.getInstance().addEditorFactoryListener(new EditorFactoryListener() {
-      public void editorCreated(@NotNull EditorFactoryEvent event) {
-        if (!VimPlugin.isEnabled()) return;
-        final Editor editor = event.getEditor();
-        // This ridiculous code ensures that a lot of events are processed BEFORE we finally start listening
-        // to visible area changes. The primary reason for this change is to fix the cursor position bug
-        // using the gd and gD commands (Goto Declaration). This bug has been around since Idea 6.0.4?
-        // Prior to this change the visible area code was moving the cursor around during file load and messing
-        // with the cursor position of the Goto Declaration processing.
-        ApplicationManager.getApplication().invokeLater(() -> ApplicationManager.getApplication()
-          .invokeLater(() -> ApplicationManager.getApplication().invokeLater(() -> {
-            VimListenerManager.INSTANCE.addEditorListeners(editor);
-            EditorData.setMotionGroup(editor, true);
-          })));
-      }
-
-      public void editorReleased(@NotNull EditorFactoryEvent event) {
-        if (!VimPlugin.isEnabled()) return;
-        Editor editor = event.getEditor();
-        if (EditorData.getMotionGroup(editor)) {
-          VimListenerManager.INSTANCE.removeEditorListeners(editor);
-          EditorData.setMotionGroup(editor, false);
-        }
-      }
-    }, ApplicationManager.getApplication());
+  public void editorCreated(@NotNull EditorFactoryEvent event) {
+    final Editor editor = event.getEditor();
+    // This ridiculous code ensures that a lot of events are processed BEFORE we finally start listening
+    // to visible area changes. The primary reason for this change is to fix the cursor position bug
+    // using the gd and gD commands (Goto Declaration). This bug has been around since Idea 6.0.4?
+    // Prior to this change the visible area code was moving the cursor around during file load and messing
+    // with the cursor position of the Goto Declaration processing.
+    ApplicationManager.getApplication().invokeLater(() -> ApplicationManager.getApplication()
+      .invokeLater(() -> ApplicationManager.getApplication().invokeLater(() -> {
+        VimListenerManager.EditorListeners.add(editor);
+        UserDataManager.setVimMotionGroup(editor, true);
+      })));
   }
 
-  public void turnOn() {
-    Editor[] editors = EditorFactory.getInstance().getAllEditors();
-    for (Editor editor : editors) {
-      if (!EditorData.getMotionGroup(editor)) {
-        VimListenerManager.INSTANCE.addEditorListeners(editor);
-        EditorData.setMotionGroup(editor, true);
-      }
-    }
-  }
-
-  public void turnOff() {
-    Editor[] editors = EditorFactory.getInstance().getAllEditors();
-    for (Editor editor : editors) {
-      if (EditorData.getMotionGroup(editor)) {
-        VimListenerManager.INSTANCE.removeEditorListeners(editor);
-        EditorData.setMotionGroup(editor, false);
-      }
+  public void editorReleased(@NotNull EditorFactoryEvent event) {
+    Editor editor = event.getEditor();
+    if (UserDataManager.getVimMotionGroup(editor)) {
+      VimListenerManager.EditorListeners.remove(editor);
+      UserDataManager.setVimMotionGroup(editor, false);
     }
   }
 
@@ -221,7 +192,7 @@ public class MotionGroup {
       newline = EditorHelper.normalizeVisualLine(editor, bottomVisualLine - scrollOffset);
     }
 
-    int sideScrollOffset = ((NumberOption)Options.getInstance().getOption("sidescrolloff")).value();
+    int sideScrollOffset = OptionsManager.INSTANCE.getSidescrolloff().value();
     int width = EditorHelper.getScreenWidth(editor);
     if (sideScrollOffset > width / 2) {
       sideScrollOffset = width / 2;
@@ -230,7 +201,7 @@ public class MotionGroup {
     int col = editor.getCaretModel().getVisualPosition().column;
     int oldColumn = col;
     if (col >= EditorHelper.getLineLength(editor) - 1) {
-      col = CaretDataKt.getVimLastColumn(editor.getCaretModel().getPrimaryCaret());
+      col = UserDataManager.getVimLastColumn(editor.getCaretModel().getPrimaryCaret());
     }
     int visualColumn = EditorHelper.getVisualColumnAtLeftOfScreen(editor);
     int caretColumn = col;
@@ -252,7 +223,7 @@ public class MotionGroup {
       int offset = EditorHelper.visualPositionToOffset(editor, new VisualPosition(newline, newColumn));
       moveCaret(editor, editor.getCaretModel().getPrimaryCaret(), offset);
 
-      CaretDataKt.setVimLastColumn(editor.getCaretModel().getPrimaryCaret(), col);
+      UserDataManager.setVimLastColumn(editor.getCaretModel().getPrimaryCaret(), col);
     }
   }
 
@@ -304,7 +275,7 @@ public class MotionGroup {
   }
 
   private static int getScrollOption(int rawCount) {
-    NumberOption scroll = (NumberOption)Options.getInstance().getOption("scroll");
+    NumberOption scroll = OptionsManager.INSTANCE.getScroll();
     if (rawCount == 0) {
       return scroll.value();
     }
@@ -314,7 +285,7 @@ public class MotionGroup {
   }
 
   private static int getNormalizedScrollOffset(@NotNull final Editor editor) {
-    int scrollOffset = ((NumberOption)Options.getInstance().getOption("scrolloff")).value();
+    int scrollOffset = OptionsManager.INSTANCE.getScrolloff().value();
     return EditorHelper.normalizeScrollOffset(editor, scrollOffset);
   }
 
@@ -324,14 +295,14 @@ public class MotionGroup {
       if (CommandStateHelper.inBlockSubMode(editor)) {
         VisualGroupKt.vimMoveBlockSelectionToOffset(editor, offset);
         Caret primaryCaret = editor.getCaretModel().getPrimaryCaret();
-        CaretDataKt.setVimLastColumn(primaryCaret, primaryCaret.getVisualPosition().column);
+        UserDataManager.setVimLastColumn(primaryCaret, primaryCaret.getVisualPosition().column);
         scrollCaretIntoView(editor);
         return;
       }
 
       if (caret.getOffset() != offset) {
         caret.moveToOffset(offset);
-        CaretDataKt.setVimLastColumn(caret, caret.getVisualPosition().column);
+        UserDataManager.setVimLastColumn(caret, caret.getVisualPosition().column);
         if (caret == editor.getCaretModel().getPrimaryCaret()) {
           scrollCaretIntoView(editor);
         }
@@ -668,11 +639,11 @@ public class MotionGroup {
     final int column = position.column;
 
     // We need the non-normalised value here, so we can handle cases such as so=999 to keep the current line centred
-    int scrollOffset = ((NumberOption)Options.getInstance().getOption("scrolloff")).value();
+    int scrollOffset = OptionsManager.INSTANCE.getScrolloff().value();
 
     int scrollJumpSize = 0;
     if (scrollJump) {
-      scrollJumpSize = Math.max(0, ((NumberOption)Options.getInstance().getOption("scrolljump")).value() - 1);
+      scrollJumpSize = Math.max(0, OptionsManager.INSTANCE.getScrolljump().value() - 1);
     }
 
     int visualTop = topVisualLine + scrollOffset;
@@ -722,10 +693,10 @@ public class MotionGroup {
     int visualColumn = EditorHelper.getVisualColumnAtLeftOfScreen(editor);
     int width = EditorHelper.getScreenWidth(editor);
     scrollJump = !CommandState.getInstance(editor).getFlags().contains(CommandFlags.FLAG_IGNORE_SIDE_SCROLL_JUMP);
-    scrollOffset = ((NumberOption)Options.getInstance().getOption("sidescrolloff")).value();
+    scrollOffset = OptionsManager.INSTANCE.getScrolloff().value();
     scrollJumpSize = 0;
     if (scrollJump) {
-      scrollJumpSize = Math.max(0, ((NumberOption)Options.getInstance().getOption("sidescroll")).value() - 1);
+      scrollJumpSize = Math.max(0, OptionsManager.INSTANCE.getSidescroll().value() - 1);
       if (scrollJumpSize == 0) {
         scrollJumpSize = width / 2;
       }
@@ -809,10 +780,10 @@ public class MotionGroup {
     int dir = 1;
     boolean selection = false;
     if (CommandState.getInstance(editor).getMode() == CommandState.Mode.VISUAL) {
-      if (CaretDataKt.getVimSelectionStart(caret) > caret.getOffset()) {
+      if (UserDataManager.getVimSelectionStart(caret) > caret.getOffset()) {
         dir = -1;
       }
-      if (CaretDataKt.getVimSelectionStart(caret) != caret.getOffset()) {
+      if (UserDataManager.getVimSelectionStart(caret) != caret.getOffset()) {
         selection = true;
       }
     }
@@ -834,7 +805,7 @@ public class MotionGroup {
     final Mark mark = VimPlugin.getMark().getMark(editor, ch);
     if (mark == null) return -1;
 
-    final VirtualFile vf = EditorData.getVirtualFile(editor);
+    final VirtualFile vf = EditorHelper.getVirtualFile(editor);
     if (vf == null) return -1;
 
     final int line = mark.getLogicalLine();
@@ -864,7 +835,7 @@ public class MotionGroup {
       return -1;
     }
 
-    final VirtualFile vf = EditorData.getVirtualFile(editor);
+    final VirtualFile vf = EditorHelper.getVirtualFile(editor);
     if (vf == null) {
       return -1;
     }
@@ -899,7 +870,7 @@ public class MotionGroup {
   }
 
   private void scrollColumnToScreenColumn(@NotNull Editor editor, int column) {
-    int scrollOffset = ((NumberOption)Options.getInstance().getOption("sidescrolloff")).value();
+    int scrollOffset = OptionsManager.INSTANCE.getSidescrolloff().value();
     int width = EditorHelper.getScreenWidth(editor);
     if (scrollOffset > width / 2) {
       scrollOffset = width / 2;
@@ -1114,7 +1085,7 @@ public class MotionGroup {
   }
 
   public int moveCaretToLine(@NotNull Editor editor, int logicalLine, @NotNull Caret caret) {
-    int col = CaretDataKt.getVimLastColumn(caret);
+    int col = UserDataManager.getVimLastColumn(caret);
     int line = logicalLine;
     if (logicalLine < 0) {
       line = 0;
@@ -1282,18 +1253,18 @@ public class MotionGroup {
   }
 
   public int moveCaretVertical(@NotNull Editor editor, @NotNull Caret caret, int count) {
-   VisualPosition pos = caret.getVisualPosition();
+    VisualPosition pos = caret.getVisualPosition();
     final LogicalPosition logicalPosition = caret.getLogicalPosition();
     if ((pos.line == 0 && count < 0) || (pos.line >= EditorHelper.getVisualLineCount(editor) - 1 && count > 0)) {
       return -1;
     }
     else {
-      int col = CaretDataKt.getVimLastColumn(caret);
+      int col = UserDataManager.getVimLastColumn(caret);
       int line = EditorHelper.normalizeVisualLine(editor, pos.line + count);
       final CommandState.Mode mode = CommandStateHelper.getMode(editor);
       final int lastColumnCurrentLine = EditorHelper.lastColumnForLine(editor, logicalPosition.line, CommandStateHelper.isEndAllowed(mode));
 
-      if (pos.column < col && lastColumnCurrentLine != pos.column) {
+      if (lastColumnCurrentLine != pos.column) {
         col = pos.column;
       }
       final int normalizedCol = EditorHelper
@@ -1332,19 +1303,17 @@ public class MotionGroup {
     TOP, MIDDLE, BOTTOM
   }
 
-  public static class MotionEditorChange implements FileEditorManagerListener {
-    public void selectionChanged(@NotNull FileEditorManagerEvent event) {
-      if (ExEntryPanel.getInstance().isActive()) {
-        ExEntryPanel.getInstance().deactivate(false);
-      }
-      final FileEditor fileEditor = event.getOldEditor();
-      if (fileEditor instanceof TextEditor) {
-        final Editor editor = ((TextEditor)fileEditor).getEditor();
-        ExOutputModel.getInstance(editor).clear();
-        if (CommandState.getInstance(editor).getMode() == CommandState.Mode.VISUAL) {
-          VimPlugin.getVisualMotion().exitVisual(editor);
-          KeyHandler.getInstance().reset(editor);
-        }
+  public static void fileEditorManagerSelectionChangedCallback(@NotNull FileEditorManagerEvent event) {
+    if (ExEntryPanel.getInstance().isActive()) {
+      ExEntryPanel.getInstance().deactivate(false);
+    }
+    final FileEditor fileEditor = event.getOldEditor();
+    if (fileEditor instanceof TextEditor) {
+      final Editor editor = ((TextEditor)fileEditor).getEditor();
+      ExOutputModel.getInstance(editor).clear();
+      if (CommandState.getInstance(editor).getMode() == CommandState.Mode.VISUAL) {
+        VimPlugin.getVisualMotion().exitVisual(editor);
+        KeyHandler.getInstance().reset(editor);
       }
     }
   }

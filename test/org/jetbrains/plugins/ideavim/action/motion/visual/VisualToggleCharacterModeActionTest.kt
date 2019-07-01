@@ -22,9 +22,8 @@ package org.jetbrains.plugins.ideavim.action.motion.visual
 
 import com.maddyhome.idea.vim.command.CommandState
 import com.maddyhome.idea.vim.helper.StringHelper.parseKeys
-import com.maddyhome.idea.vim.helper.VimBehaviourDiffers
 import com.maddyhome.idea.vim.helper.vimSelectionStart
-import com.maddyhome.idea.vim.option.Options
+import com.maddyhome.idea.vim.option.OptionsManager
 import org.jetbrains.plugins.ideavim.VimTestCase
 import org.jetbrains.plugins.ideavim.rangeOf
 
@@ -504,13 +503,6 @@ class VisualToggleCharacterModeActionTest : VimTestCase() {
       CommandState.Mode.VISUAL, CommandState.SubMode.VISUAL_LINE)
   }
 
-  @VimBehaviourDiffers("""
-                    A Discovery
-
-                    ${s}${c}all rocks and lavender and tufted grass,
-                    ${se}where it was settled on some sodden sand
-                    hard by the torrent of a mountain pass.
-    """)
   fun `test enter visual with count after line visual operation with dollar motion`() {
     doTest(parseKeys("V\$d", "1v"),
       """
@@ -524,7 +516,7 @@ class VisualToggleCharacterModeActionTest : VimTestCase() {
       """
                     A Discovery
 
-                    ${s}all rocks and lavender and tufted grass${c},
+                    ${s}${c}all rocks and lavender and tufted grass,
                     ${se}where it was settled on some sodden sand
                     hard by the torrent of a mountain pass.
                 """.trimIndent(),
@@ -645,7 +637,7 @@ class VisualToggleCharacterModeActionTest : VimTestCase() {
                     where it was settled on some sodden sand[long line]
                     hard by the torrent of a mountain pass.
         """.trimIndent())
-    Options.getInstance().getListOption(Options.SELECTMODE)!!.set("cmd")
+    OptionsManager.selectmode.set("cmd")
     typeText(parseKeys("v"))
     assertState(CommandState.Mode.SELECT, CommandState.SubMode.VISUAL_CHARACTER)
   }

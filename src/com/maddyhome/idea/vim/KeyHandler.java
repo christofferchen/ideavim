@@ -32,6 +32,8 @@ import com.intellij.openapi.editor.actionSystem.ActionPlan;
 import com.intellij.openapi.editor.actionSystem.TypedActionHandler;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.impl.source.tree.injected.InjectedLanguageUtil;
+import com.maddyhome.idea.vim.action.MotionEditorAction;
+import com.maddyhome.idea.vim.action.TextObjectAction;
 import com.maddyhome.idea.vim.command.*;
 import com.maddyhome.idea.vim.extension.VimExtensionHandler;
 import com.maddyhome.idea.vim.group.RegisterGroup;
@@ -40,7 +42,7 @@ import com.maddyhome.idea.vim.helper.EditorDataContext;
 import com.maddyhome.idea.vim.helper.RunnableHelper;
 import com.maddyhome.idea.vim.helper.StringHelper;
 import com.maddyhome.idea.vim.key.*;
-import com.maddyhome.idea.vim.option.Options;
+import com.maddyhome.idea.vim.option.OptionsManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -195,7 +197,7 @@ public class KeyHandler {
 
       // Ask the key/action tree if this is an appropriate key at this point in the command and if so,
       // return the node matching this keystroke
-      final Node node = editorState.getCurrentNode().getChild(key);
+      final Node node = editorState.getCurrentNode().getChildOrArgument(key);
 
       if (handleDigraph(editor, key, context, node)) {
         return;
@@ -215,7 +217,7 @@ public class KeyHandler {
         shouldRecord = handleArgumentNode(editor, key, context, editorState, (ArgumentNode)node);
       }
       else {
-        if (lastWasBS && lastChar != 0 && Options.getInstance().isSet("digraph")) {
+        if (lastWasBS && lastChar != 0 && OptionsManager.INSTANCE.getDigraph().isSet()) {
           char dig = VimPlugin.getDigraph().getDigraph(lastChar, key.getKeyChar());
           key = KeyStroke.getKeyStroke(dig);
         }
@@ -324,7 +326,7 @@ public class KeyHandler {
 
     if (mapping.isPrefix(fromKeys)) {
       mappingKeys.add(key);
-      if (!application.isUnitTestMode() && Options.getInstance().isSet(Options.TIMEOUT)) {
+      if (!application.isUnitTestMode() && OptionsManager.INSTANCE.getTimeout().isSet()) {
         commandState.startMappingTimer(actionEvent -> application.invokeLater(() -> {
           mappingKeys.clear();
           if (editor.isDisposed()) {
@@ -560,6 +562,10 @@ public class KeyHandler {
     if (currentArg == Argument.Type.MOTION) {
       // We have been expecting a motion argument - is this one?
       if (node.getCmdType() == Command.Type.MOTION) {
+        if (!(node.getAction() instanceof MotionEditorAction) && !(node.getAction() instanceof TextObjectAction)) {
+          throw new RuntimeException("MOTION cmd type can be used only with MotionEditorAction or TextObjectAction - " +
+                                     node.getAction().getClass().getName());
+        }
         // Create the motion command and add it to the stack
         Command cmd = new Command(count, node.getActionId(), node.getAction(), node.getCmdType(), node.getFlags());
         cmd.setKeys(keys);
@@ -738,6 +744,7 @@ public class KeyHandler {
       this.key = key;
     }
 
+    @Override
     public void run() {
       CommandState editorState = CommandState.getInstance(editor);
       boolean wasRecording = editorState.isRecording();
@@ -778,11 +785,7 @@ public class KeyHandler {
   }
 
   private enum State {
-    NEW_COMMAND,
-    COMMAND,
-    READY,
-    ERROR,
-    BAD_COMMAND
+    NEW_COMMAND, COMMAND, READY, ERROR, BAD_COMMAND
   }
 
   private int count;

@@ -25,7 +25,12 @@ import com.intellij.ide.PasteProvider
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.PlatformDataKeys
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.editor.*
+import com.intellij.openapi.editor.Caret
+import com.intellij.openapi.editor.CaretStateTransferableData
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.LogicalPosition
+import com.intellij.openapi.editor.RangeMarker
+import com.intellij.openapi.editor.RawText
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.util.text.StringUtil
 import com.maddyhome.idea.vim.VimPlugin
@@ -35,9 +40,9 @@ import com.maddyhome.idea.vim.common.TextRange
 import com.maddyhome.idea.vim.group.MarkGroup
 import com.maddyhome.idea.vim.group.MotionGroup
 import com.maddyhome.idea.vim.group.visual.VimSelection
-import com.maddyhome.idea.vim.handler.CaretOrder.DECREASING_OFFSET
 import com.maddyhome.idea.vim.helper.EditorHelper
-import com.maddyhome.idea.vim.option.Options
+import com.maddyhome.idea.vim.option.ClipboardOptionsData
+import com.maddyhome.idea.vim.option.OptionsManager
 import java.util.*
 import kotlin.math.abs
 import kotlin.math.min
@@ -135,7 +140,7 @@ class PutGroup {
 
   private fun putTextAndSetCaretPosition(editor: Editor, context: DataContext, text: ProcessedTextData, data: PutData, additionalData: Map<String, Any>) {
     val subMode = data.visualSelection?.typeInEditor?.toSubMode() ?: CommandState.SubMode.NONE
-    if (Options.getInstance().getListOption(Options.CLIPBOARD)!!.contains(Options.IDEAPUT)) {
+    if (ClipboardOptionsData.ideaput in OptionsManager.clipboard) {
       val idePasteProvider = getProviderForPasteViaIde(context, text.typeInRegister, data)
       if (idePasteProvider != null) {
         logger.debug("Perform put via idea paste")
@@ -148,7 +153,7 @@ class PutGroup {
     val myCarets = if (data.visualSelection != null) {
       data.visualSelection.caretsAndSelections.keys.sortedByDescending { it.logicalPosition }
     } else {
-      EditorHelper.getOrderedCaretsList(editor, DECREASING_OFFSET)
+      EditorHelper.getOrderedCaretsList(editor)
     }
     myCarets.forEach { caret -> putForCaret(editor, caret, data, additionalData, context, text) }
   }
@@ -236,7 +241,7 @@ class PutGroup {
 
   private fun putTextViaIde(pasteProvider: PasteProvider, editor: Editor, context: DataContext, text: ProcessedTextData, subMode: CommandState.SubMode, data: PutData, additionalData: Map<String, Any>) {
     val carets: MutableMap<Caret, RangeMarker> = mutableMapOf()
-    EditorHelper.getOrderedCaretsList(editor, DECREASING_OFFSET).forEach { caret ->
+    EditorHelper.getOrderedCaretsList(editor).forEach { caret ->
       val startOffset = prepareDocumentAndGetStartOffsets(editor, caret, text.typeInRegister, data, additionalData).first()
       val pointMarker = editor.document.createRangeMarker(startOffset, startOffset)
       caret.moveToOffset(startOffset)

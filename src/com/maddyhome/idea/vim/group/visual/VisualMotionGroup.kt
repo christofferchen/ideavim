@@ -29,14 +29,23 @@ import com.maddyhome.idea.vim.command.CommandState
 import com.maddyhome.idea.vim.command.MappingMode
 import com.maddyhome.idea.vim.command.SelectionType
 import com.maddyhome.idea.vim.common.TextRange
-import com.maddyhome.idea.vim.group.ChangeGroup
 import com.maddyhome.idea.vim.group.MotionGroup
-import com.maddyhome.idea.vim.helper.*
+import com.maddyhome.idea.vim.helper.EditorDataContext
+import com.maddyhome.idea.vim.helper.EditorHelper
+import com.maddyhome.idea.vim.helper.inBlockSubMode
+import com.maddyhome.idea.vim.helper.inSelectMode
+import com.maddyhome.idea.vim.helper.inVisualMode
+import com.maddyhome.idea.vim.helper.subMode
+import com.maddyhome.idea.vim.helper.vimForEachCaret
+import com.maddyhome.idea.vim.helper.vimKeepingVisualOperatorAction
+import com.maddyhome.idea.vim.helper.vimLastColumn
+import com.maddyhome.idea.vim.helper.vimLastSelectionType
+import com.maddyhome.idea.vim.helper.vimLastVisualOperatorRange
+import com.maddyhome.idea.vim.helper.vimSelectionStart
+import com.maddyhome.idea.vim.helper.vimSelectionStartClear
 import com.maddyhome.idea.vim.listener.SelectionVimListenerSuppressor
 import com.maddyhome.idea.vim.listener.VimListenerManager
-import com.maddyhome.idea.vim.option.BoundStringOption
-import com.maddyhome.idea.vim.option.ListOption
-import com.maddyhome.idea.vim.option.Options
+import com.maddyhome.idea.vim.option.OptionsManager
 
 /**
  * @author Alex Plate
@@ -47,7 +56,7 @@ class VisualMotionGroup {
   }
 
   fun selectPreviousVisualMode(editor: Editor): Boolean {
-    val lastSelectionType = EditorData.getLastSelectionType(editor) ?: return false
+    val lastSelectionType = editor.vimLastSelectionType ?: return false
     val visualMarks = VimPlugin.getMark().getVisualSelectionMarks(editor) ?: return false
 
     editor.caretModel.removeSecondaryCarets()
@@ -64,15 +73,14 @@ class VisualMotionGroup {
   }
 
   fun swapVisualSelections(editor: Editor): Boolean {
-    val lastSelectionType = EditorData.getLastSelectionType(editor) ?: return false
+    val lastSelectionType = editor.vimLastSelectionType ?: return false
 
     val lastVisualRange = VimPlugin.getMark().getVisualSelectionMarks(editor) ?: return false
     val primaryCaret = editor.caretModel.primaryCaret
     editor.caretModel.removeSecondaryCarets()
     val vimSelectionStart = primaryCaret.vimSelectionStart
 
-    val selectionType = SelectionType.fromSubMode(editor.subMode)
-    EditorData.setLastSelectionType(editor, selectionType)
+    editor.vimLastSelectionType = SelectionType.fromSubMode(editor.subMode)
     VimPlugin.getMark().setVisualSelectionMarks(editor, TextRange(vimSelectionStart, primaryCaret.offset))
 
     editor.subMode = lastSelectionType.toSubMode()
@@ -108,7 +116,7 @@ class VisualMotionGroup {
     return true
   }
 
-  fun controlNonVimSelectionChange(editor: Editor, resetCaretToInsert: Boolean = false, selectionSource: VimListenerManager.SelectionSource = VimListenerManager.SelectionSource.OTHER) {
+  fun controlNonVimSelectionChange(editor: Editor, selectionSource: VimListenerManager.SelectionSource = VimListenerManager.SelectionSource.OTHER) {
     if (editor.caretModel.allCarets.any(Caret::hasSelection)) {
       val commandState = CommandState.getInstance(editor)
       modeBeforeEnteringNonVimVisual = commandState.mode
@@ -117,7 +125,7 @@ class VisualMotionGroup {
       }
       val autodetectedMode = autodetectVisualMode(editor)
       val project = editor.project
-      val selectMode = Options.getInstance().getListOption(Options.SELECTMODE) ?: ListOption.empty
+      val selectMode = OptionsManager.selectmode
       when {
         editor.isOneLineMode -> enterSelectMode(editor, autodetectedMode)
         selectionSource == VimListenerManager.SelectionSource.MOUSE && "mouse" in selectMode -> enterSelectMode(editor, autodetectedMode)
@@ -127,7 +135,7 @@ class VisualMotionGroup {
       }
       KeyHandler.getInstance().reset(editor)
     } else {
-      ChangeGroup.resetCursor(editor, resetCaretToInsert)
+      updateCaretState(editor)
       exitVisual(editor)
       exitSelectModeAndResetKeyHandler(editor, true)
 
@@ -239,20 +247,14 @@ class VisualMotionGroup {
     } else {
       editor.caretModel.allCarets.forEach { it.vimSelectionStart = it.vimLeadSelectionOffset }
     }
-    updateCaretColours(editor)
-    ChangeGroup.resetCursor(editor, false)
+    updateCaretState(editor)
     return true
   }
 
   fun enterSelectMode(editor: Editor, subMode: CommandState.SubMode): Boolean {
     CommandState.getInstance(editor).pushState(CommandState.Mode.SELECT, subMode, MappingMode.SELECT)
-    if (subMode == CommandState.SubMode.VISUAL_BLOCK) {
-      editor.caretModel.primaryCaret.run { vimSelectionStart = vimLeadSelectionOffset }
-    } else {
-      editor.caretModel.allCarets.forEach { it.vimSelectionStart = it.vimLeadSelectionOffset }
-    }
-    updateCaretColours(editor)
-    ChangeGroup.resetCursor(editor, true)
+    editor.vimForEachCaret { it.vimSelectionStart = it.vimLeadSelectionOffset }
+    updateCaretState(editor)
     return true
   }
 
@@ -340,8 +342,7 @@ class VisualMotionGroup {
         }
       }
     }
-    updateCaretColours(editor)
-    ChangeGroup.resetCursor(editor, false)
+    updateCaretState(editor)
   }
 
   fun resetVisual(editor: Editor) {
@@ -353,13 +354,13 @@ class VisualMotionGroup {
         editor.caretModel.allCarets.forEach { it.visualAttributes = editor.caretModel.primaryCaret.visualAttributes }
         editor.caretModel.removeSecondaryCarets()
       }
-      if (!EditorData.isKeepingVisualOperatorAction(editor)) {
+      if (!editor.vimKeepingVisualOperatorAction) {
         editor.caretModel.allCarets.forEach(Caret::removeSelection)
       }
     }
 
     if (editor.inVisualMode) {
-      EditorData.setLastSelectionType(editor, selectionType)
+      editor.vimLastSelectionType = selectionType
       // FIXME: 2019-03-05 Make it multicaret
       val primaryCaret = editor.caretModel.primaryCaret
       val vimSelectionStart = primaryCaret.vimSelectionStart
@@ -378,7 +379,7 @@ class VisualMotionGroup {
   }
 
   val exclusiveSelection: Boolean
-    get() = (Options.getInstance().getOption("selection") as BoundStringOption).value == "exclusive"
+    get() = OptionsManager.selection.value == "exclusive"
   val selectionAdj: Int
     get() = if (exclusiveSelection) 0 else 1
 }

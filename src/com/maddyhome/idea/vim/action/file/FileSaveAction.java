@@ -23,7 +23,7 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.actionSystem.EditorAction;
 import com.maddyhome.idea.vim.VimPlugin;
 import com.maddyhome.idea.vim.command.Command;
-import com.maddyhome.idea.vim.handler.EditorActionHandlerBase;
+import com.maddyhome.idea.vim.handler.VimActionHandler;
 import org.jetbrains.annotations.NotNull;
 
 
@@ -33,9 +33,10 @@ public class FileSaveAction extends EditorAction {
     super(new Handler());
   }
 
-  private static class Handler extends EditorActionHandlerBase {
-    protected boolean execute(@NotNull Editor editor, @NotNull DataContext context, @NotNull Command cmd) {
-      VimPlugin.getFile().saveFile(editor);
+  private static class Handler extends VimActionHandler.SingleExecution {
+    @Override
+    public boolean execute(@NotNull Editor editor, @NotNull DataContext context, @NotNull Command cmd) {
+      VimPlugin.getFile().saveFile(context);
 
       return true;
     }

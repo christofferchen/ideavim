@@ -41,7 +41,7 @@ import com.maddyhome.idea.vim.helper.vimSelectionStart
  * Base class for motion handlers.
  * @see [MotionActionHandler.SingleExecution] and [MotionActionHandler.ForEachCaret]
  */
-sealed class MotionActionHandler : EditorActionHandlerBase() {
+sealed class MotionActionHandler : VimActionHandler.SingleExecution() {
 
   /**
    * Base class for motion handlers.
@@ -176,8 +176,6 @@ sealed class MotionActionHandler : EditorActionHandlerBase() {
       postMove(editor, postMoveCaret, context, cmd)
     }
   }
-
-  final override fun execute(editor: Editor, caret: Caret, context: DataContext, cmd: Command) = true
 
   private object CaretMergingWatcher : CaretListener {
     override fun caretRemoved(event: CaretEvent) {

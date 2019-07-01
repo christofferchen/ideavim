@@ -16,10 +16,19 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.maddyhome.idea.vim.handler;
+package com.maddyhome.idea.vim
 
-public class ExecuteMethodNotOverriddenException extends Exception {
-  public ExecuteMethodNotOverriddenException(Class<?> child) {
-    super("The proper execute() method is not overridden in " + child.getName());
+import com.intellij.openapi.components.ProjectComponent
+import com.intellij.openapi.project.Project
+import com.maddyhome.idea.vim.listener.VimListenerManager
+
+/**
+ * @author Alex Plate
+ */
+class VimProjectComponent(private val project: Project) : ProjectComponent {
+  override fun projectOpened() {
+    if (!VimPlugin.isEnabled()) return
+    // Project listeners are self-disposable, so there is no need to unregister them on project close
+    VimListenerManager.ProjectListeners.add(project)
   }
 }

@@ -34,12 +34,14 @@ import com.maddyhome.idea.vim.group.visual.VimSelection
 import com.maddyhome.idea.vim.group.visual.VimSimpleSelection
 import com.maddyhome.idea.vim.group.visual.VisualChange
 import com.maddyhome.idea.vim.group.visual.VisualOperation
-import com.maddyhome.idea.vim.helper.EditorData
 import com.maddyhome.idea.vim.helper.inBlockSubMode
 import com.maddyhome.idea.vim.helper.inRepeatMode
 import com.maddyhome.idea.vim.helper.inVisualMode
+import com.maddyhome.idea.vim.helper.vimChangeActionSwitchMode
 import com.maddyhome.idea.vim.helper.vimForEachCaret
+import com.maddyhome.idea.vim.helper.vimKeepingVisualOperatorAction
 import com.maddyhome.idea.vim.helper.vimLastColumn
+import com.maddyhome.idea.vim.helper.vimLastSelectionType
 import com.maddyhome.idea.vim.helper.vimLastVisualOperatorRange
 import com.maddyhome.idea.vim.helper.vimSelectionStart
 
@@ -49,7 +51,7 @@ import com.maddyhome.idea.vim.helper.vimSelectionStart
  * Base class for visual operation handlers.
  * @see [VisualOperatorActionHandler.SingleExecution] and [VisualOperatorActionHandler.ForEachCaret]
  */
-sealed class VisualOperatorActionHandler : EditorActionHandlerBase(false) {
+sealed class VisualOperatorActionHandler : VimActionHandler.SingleExecution() {
   /**
    * Base class for visual operation handlers.
    * This handler executes an action for each caret. That means that if you have 5 carets,
@@ -102,7 +104,7 @@ sealed class VisualOperatorActionHandler : EditorActionHandlerBase(false) {
   final override fun execute(editor: Editor, context: DataContext, cmd: Command): Boolean {
     logger.info("Execute visual command $cmd")
 
-    EditorData.setChangeSwitchMode(editor, null)
+    editor.vimChangeActionSwitchMode = null
 
     val selections = editor.collectSelections() ?: return false
     if (logger.isDebugEnabled) {
@@ -142,22 +144,18 @@ sealed class VisualOperatorActionHandler : EditorActionHandlerBase(false) {
 
     commandWrapper.finish(res.get())
 
-    EditorData.getChangeSwitchMode(editor)?.let {
+    editor.vimChangeActionSwitchMode?.let {
       VimPlugin.getChange().processPostChangeModeSwitch(editor, context, it)
     }
 
     return res.get()
   }
 
-  final override fun execute(editor: Editor, caret: Caret, context: DataContext, cmd: Command): Boolean {
-    return super.execute(editor, caret, context, cmd)
-  }
-
   private fun Editor.collectSelections(): Map<Caret, VimSelection>? {
 
     return when {
       this.inRepeatMode -> {
-        if (EditorData.getLastSelectionType(this) == SelectionType.BLOCK_WISE) {
+        if (this.vimLastSelectionType == SelectionType.BLOCK_WISE) {
           val primaryCaret = caretModel.primaryCaret
           val range = primaryCaret.vimLastVisualOperatorRange ?: return null
           val end = VisualOperation.calculateRange(this, range, 1, primaryCaret)
@@ -202,7 +200,7 @@ sealed class VisualOperatorActionHandler : EditorActionHandlerBase(false) {
 
     fun start() {
       logger.debug("Preparing visual command")
-      EditorData.setKeepingVisualOperatorAction(editor, CommandFlags.FLAG_EXIT_VISUAL !in cmd.flags)
+      editor.vimKeepingVisualOperatorAction = CommandFlags.FLAG_EXIT_VISUAL !in cmd.flags
 
       editor.vimForEachCaret {
         val change = if (this@VisualStartFinishWrapper.editor.inVisualMode && !this@VisualStartFinishWrapper.editor.inRepeatMode) {
@@ -232,9 +230,10 @@ sealed class VisualOperatorActionHandler : EditorActionHandlerBase(false) {
       if (res) {
         CommandState.getInstance(editor).saveLastChangeCommand(cmd)
         editor.vimForEachCaret { caret -> visualChanges[caret]?.let { caret.vimLastVisualOperatorRange = it } }
+        editor.caretModel.allCarets.forEach { it.vimLastColumn = it.visualPosition.column }
       }
 
-      EditorData.setKeepingVisualOperatorAction(editor, false)
+      editor.vimKeepingVisualOperatorAction = false
     }
   }
 
