@@ -405,6 +405,8 @@ public class ChangeGroup {
   @NotNull private final EditorMouseListener listener = new EditorMouseListener() {
     @Override
     public void mouseClicked(@NotNull EditorMouseEvent event) {
+      VimPlugin.setEnabled(false);
+
       Editor editor = event.getEditor();
       if (CommandStateHelper.inInsertMode(editor)) {
         clearStrokes(editor);

@@ -5,13 +5,13 @@ import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.editor.Caret;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.actionSystem.EditorActionHandler;
 import com.maddyhome.idea.vim.VimPlugin;
 import com.maddyhome.idea.vim.command.Argument;
 import com.maddyhome.idea.vim.command.CommandState;
 import com.maddyhome.idea.vim.common.TextRange;
 import com.maddyhome.idea.vim.extension.VimNonDisposableExtension;
 import com.maddyhome.idea.vim.handler.TextObjectActionHandler;
+import com.maddyhome.idea.vim.handler.VimActionHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,7 +53,7 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
   public static class InnerArgumentAction extends ArgumentAction {
     @NotNull
     @Override
-    public TextObjectActionHandler makeTextObjectHandler() {
+    public TextObjectActionHandler makeActionHandler() {
       return new VimArgTextObjExtension.Handler(true);
     }
   }
@@ -61,7 +61,7 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
   public static class OuterArgumentAction extends ArgumentAction {
     @NotNull
     @Override
-    public TextObjectActionHandler makeTextObjectHandler() {
+    public TextObjectActionHandler makeActionHandler() {
       return new VimArgTextObjExtension.Handler(false);
     }
   }
@@ -73,7 +73,7 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
 
     @NotNull
     @Override
-    protected EditorActionHandler makeActionHandler() {
+    protected VimActionHandler makeActionHandler() {
       return new Handler(true);
     }
   }
@@ -85,7 +85,7 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
 
     @NotNull
     @Override
-    protected EditorActionHandler makeActionHandler() {
+    protected VimActionHandler makeActionHandler() {
       return new Handler(false);
     }
   }

@@ -29,9 +29,4 @@ public abstract class ArgumentAction extends TextObjectAction {
     return null;
   }
 
-  @NotNull
-  @Override
-  public Command.Type getType() {
-    return null;
-  }
 }

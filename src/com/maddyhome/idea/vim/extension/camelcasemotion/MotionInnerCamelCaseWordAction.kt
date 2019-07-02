@@ -18,7 +18,7 @@ import java.util.*
 import javax.swing.KeyStroke
 
 class MotionInnerCamelCaseWordAction : TextObjectAction() {
-  override fun makeTextObjectHandler(): TextObjectActionHandler = object : TextObjectActionHandler() {
+  override fun makeActionHandler(): TextObjectActionHandler = object : TextObjectActionHandler() {
     override fun getRange(editor: Editor, caret: Caret, context: DataContext, count: Int, rawCount: Int, argument: Argument?): TextRange? {
       val charsSequence = editor.document.charsSequence
       val offset = caret.getOffset()
@@ -66,8 +66,6 @@ class MotionInnerCamelCaseWordAction : TextObjectAction() {
   override val mappingModes: Set<MappingMode> = MappingMode.NVO
 
   override val keyStrokesSet: Set<List<KeyStroke>> = parseKeysSet("gN")
-
-  override val type: Command.Type = Command.Type.MOTION
 
   override val flags: EnumSet<CommandFlags> = enumSetOf(CommandFlags.FLAG_MOT_CHARACTERWISE, CommandFlags.FLAG_MOT_INCLUSIVE)
 }
