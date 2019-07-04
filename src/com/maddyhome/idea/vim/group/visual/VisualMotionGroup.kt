@@ -19,6 +19,9 @@
 package com.maddyhome.idea.vim.group.visual
 
 import com.intellij.codeInsight.template.TemplateManager
+import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.diagnostic.debug
+import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Caret
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.LogicalPosition
@@ -35,6 +38,7 @@ import com.maddyhome.idea.vim.helper.EditorHelper
 import com.maddyhome.idea.vim.helper.inBlockSubMode
 import com.maddyhome.idea.vim.helper.inSelectMode
 import com.maddyhome.idea.vim.helper.inVisualMode
+import com.maddyhome.idea.vim.helper.mode
 import com.maddyhome.idea.vim.helper.subMode
 import com.maddyhome.idea.vim.helper.vimForEachCaret
 import com.maddyhome.idea.vim.helper.vimKeepingVisualOperatorAction
@@ -46,6 +50,7 @@ import com.maddyhome.idea.vim.helper.vimSelectionStartClear
 import com.maddyhome.idea.vim.listener.SelectionVimListenerSuppressor
 import com.maddyhome.idea.vim.listener.VimListenerManager
 import com.maddyhome.idea.vim.option.OptionsManager
+import com.maddyhome.idea.vim.option.SelectModeOptionData
 
 /**
  * @author Alex Plate
@@ -53,6 +58,7 @@ import com.maddyhome.idea.vim.option.OptionsManager
 class VisualMotionGroup {
   companion object {
     var modeBeforeEnteringNonVimVisual: CommandState.Mode? = null
+    val logger = Logger.getInstance(VisualMotionGroup.javaClass)
   }
 
   fun selectPreviousVisualMode(editor: Editor): Boolean {
@@ -118,6 +124,7 @@ class VisualMotionGroup {
 
   fun controlNonVimSelectionChange(editor: Editor, selectionSource: VimListenerManager.SelectionSource = VimListenerManager.SelectionSource.OTHER) {
     if (editor.caretModel.allCarets.any(Caret::hasSelection)) {
+      logger.debug("Some of carets have selection")
       val commandState = CommandState.getInstance(editor)
       modeBeforeEnteringNonVimVisual = commandState.mode
       while (commandState.mode != CommandState.Mode.COMMAND) {
@@ -128,23 +135,25 @@ class VisualMotionGroup {
       val selectMode = OptionsManager.selectmode
       when {
         editor.isOneLineMode -> enterSelectMode(editor, autodetectedMode)
-        selectionSource == VimListenerManager.SelectionSource.MOUSE && "mouse" in selectMode -> enterSelectMode(editor, autodetectedMode)
-        project != null && TemplateManager.getInstance(project).getActiveTemplate(editor) != null && "template" in selectMode -> enterSelectMode(editor, autodetectedMode)
-        selectionSource == VimListenerManager.SelectionSource.OTHER && "refactoring" in selectMode -> enterSelectMode(editor, autodetectedMode)
+        selectionSource == VimListenerManager.SelectionSource.MOUSE && SelectModeOptionData.mouse in selectMode -> enterSelectMode(editor, autodetectedMode)
+        project != null && TemplateManager.getInstance(project).getActiveTemplate(editor) != null && SelectModeOptionData.template in selectMode -> enterSelectMode(editor, autodetectedMode)
+        selectionSource == VimListenerManager.SelectionSource.OTHER && SelectModeOptionData.refactoring in selectMode -> enterSelectMode(editor, autodetectedMode)
         else -> enterVisualMode(editor, autodetectedMode)
       }
       KeyHandler.getInstance().reset(editor)
     } else {
-      updateCaretState(editor)
+      logger.debug("None of carets has selection")
       exitVisual(editor)
       exitSelectModeAndResetKeyHandler(editor, true)
 
       val project = editor.project
-      if (project != null && TemplateManager.getInstance(project).getActiveTemplate(editor) != null || modeBeforeEnteringNonVimVisual == CommandState.Mode.INSERT) {
+      if ((project != null && TemplateManager.getInstance(project).getActiveTemplate(editor) != null || modeBeforeEnteringNonVimVisual == CommandState.Mode.INSERT) && editor.mode == CommandState.Mode.COMMAND) {
         VimPlugin.getChange().insertBeforeCursor(editor, EditorDataContext(editor))
       }
+      updateCaretState(editor)
       KeyHandler.getInstance().reset(editor)
     }
+    logger.debug("${editor.mode} is enabled")
   }
 
   //=============================== ENTER VISUAL and SELECT MODE ==============================================
