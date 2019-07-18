@@ -28,6 +28,7 @@ import com.maddyhome.idea.vim.helper.MessageHelper
 import com.maddyhome.idea.vim.helper.Msg
 import org.jetbrains.annotations.Contract
 import java.util.*
+import kotlin.math.ceil
 import kotlin.math.min
 
 @Suppress("unused")
@@ -37,38 +38,38 @@ object OptionsManager {
   private val options: MutableMap<String, Option> = mutableMapOf()
   private val abbrevs: MutableMap<String, Option> = mutableMapOf()
 
+  val clipboard = addOption(ListOption(ClipboardOptionsData.name, ClipboardOptionsData.abbr, arrayOf(ClipboardOptionsData.ideaput, "autoselect,exclude:cons\\|linux"), null))
   val digraph = addOption(ToggleOption("digraph", "dg", false))
   val gdefault = addOption(ToggleOption("gdefault", "gd", false))
   val history = addOption(NumberOption("history", "hi", 20, 1, Int.MAX_VALUE))
   val hlsearch = addOption(ToggleOption("hlsearch", "hls", false))
-  val ignorecase = addOption(ToggleOption("ignorecase", "ic", false))
+  val ideamarks = addOption(IdeaMarkskOptionsData.option)
+  val ignorecase = addOption(ToggleOption(IgnoreCaseOptionsData.name, IgnoreCaseOptionsData.abbr, false))
+  val incsearch = addOption(ToggleOption("incsearch", "is", false))
+  val iskeyword = addOption(KeywordOption("iskeyword", "isk", arrayOf("@", "48-57", "_")))
+  val keymodel = addOption(KeyModelOptionData.option)
+  val lookupActions = addOption(ListOption("lookupactions", "lookupactions", arrayOf("VimLookupUp", "VimLookupDown"), null))
   val matchpairs = addOption(ListOption("matchpairs", "mps", arrayOf("(:)", "{:}", "[:]"), ".:."))
   val more = addOption(ToggleOption("more", "more", true))
   val nrformats = addOption(BoundListOption("nrformats", "nf", arrayOf("octal", "hex"), arrayOf("octal", "hex", "alpha")))
+  val number = addOption(ToggleOption("number", "nu", false))
+  val relativenumber = addOption(ToggleOption("relativenumber", "rnu", false))
   val scroll = addOption(NumberOption("scroll", "scr", 0))
   val scrolljump = addOption(NumberOption("scrolljump", "sj", 1))
   val scrolloff = addOption(NumberOption("scrolloff", "so", 0))
   val selection = addOption(BoundStringOption("selection", "sel", "inclusive", arrayOf("old", "inclusive", "exclusive")))
+  val selectmode = addOption(SelectModeOptionData.option)
   val showmode = addOption(ToggleOption("showmode", "smd", false))
   val sidescroll = addOption(NumberOption("sidescroll", "ss", 0))
   val sidescrolloff = addOption(NumberOption("sidescrolloff", "siso", 0))
-  val smartcase = addOption(ToggleOption("smartcase", "scs", false))
+  val smartcase = addOption(ToggleOption(SmartCaseOptionsData.name, SmartCaseOptionsData.abbr, false))
+  val ideajoin = addOption(IdeaJoinOptionsData.option)
+  val timeout = addOption(ToggleOption("timeout", "to", true))
   val timeoutlen = addOption(NumberOption("timeoutlen", "tm", 1000, -1, Int.MAX_VALUE))
   val undolevels = addOption(NumberOption("undolevels", "ul", 1000, -1, Int.MAX_VALUE))
+  val viminfo = addOption(ListOption("viminfo", "vi", arrayOf("'100", "<50", "s10", "h"), null))
   val visualbell = addOption(ToggleOption("visualbell", "vb", false))
   val wrapscan = addOption(ToggleOption("wrapscan", "ws", true))
-  val number = addOption(ToggleOption("number", "nu", false))
-  val relativenumber = addOption(ToggleOption("relativenumber", "rnu", false))
-  val clipboard = addOption(ListOption(ClipboardOptionsData.name, ClipboardOptionsData.abbr, arrayOf(ClipboardOptionsData.ideaput, "autoselect,exclude:cons\\|linux"), null))
-  val incsearch = addOption(ToggleOption("incsearch", "is", false))
-  val timeout = addOption(ToggleOption("timeout", "to", true))
-  val viminfo = addOption(ListOption("viminfo", "vi", arrayOf("'100", "<50", "s10", "h"), null))
-  val iskeyword = addOption(KeywordOption("iskeyword", "isk", arrayOf("@", "48-57", "_")))
-  val selectmode = addOption(SelectModeOptionData.option)
-  val keymodel = addOption(KeyModelOptionData.option)
-  val lookupActions = addOption(ListOption("lookupactions", "lookupactions", arrayOf("VimLookupUp", "VimLookupDown"), null))
-  val smartjoin = addOption(SmartJoinOptionsData.option)
-  val idemarks = addOption(IdeMarskOptionsData.option)
 
   init {
     registerExtensionOptions()
@@ -318,7 +319,7 @@ object OptionsManager {
       width = 80
     }
     val colCount = width / 20
-    val height = Math.ceil(cols.size.toDouble() / colCount.toDouble()).toInt()
+    val height = ceil(cols.size.toDouble() / colCount.toDouble()).toInt()
     var empty = cols.size % colCount
     empty = if (empty == 0) colCount else empty
 
@@ -408,16 +409,26 @@ object ClipboardOptionsData {
   const val ideaput = "ideaput"
 }
 
-object SmartJoinOptionsData {
-  const val name = "smartjoin"
+object IdeaJoinOptionsData {
+  const val name = "ideajoin"
   const val defaultValue = false
 
   val option = ToggleOption(name, name, defaultValue)
 }
 
-object IdeMarskOptionsData {
-  const val name = "idemarks"
+object IdeaMarkskOptionsData {
+  const val name = "ideamarks"
   const val defaultValue = true
 
   val option = ToggleOption(name, name, defaultValue)
+}
+
+object SmartCaseOptionsData {
+  const val name = "smartcase"
+  const val abbr = "scs"
+}
+
+object IgnoreCaseOptionsData {
+  const val name = "ignorecase"
+  const val abbr = "ic"
 }

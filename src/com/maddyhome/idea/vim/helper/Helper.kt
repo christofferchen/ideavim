@@ -18,13 +18,15 @@
 
 package com.maddyhome.idea.vim.helper
 
+import com.intellij.codeInsight.template.TemplateManager
+import com.intellij.injected.editor.EditorWindow
 import com.intellij.openapi.editor.Caret
 import com.intellij.openapi.editor.Editor
 import java.util.*
 
 /**
  * This annotation is created for test functions (methods).
- * It means that original vim behaviour has small differences from behaviour of IdeaVim.
+ * It means that original vim behavior has small differences from behavior of IdeaVim.
  * [shouldBeFixed] flag indicates whether the given functionality should be fixed
  *   or the given behavior is normal for IdeaVim and should be leaved as is.
  *
@@ -40,25 +42,49 @@ import java.util.*
  *    Hello3
  *
  * Why this annotation exists?
- * After creating some functionality you can understand that IdeaVim has a bit different behaviour, but you
+ * After creating some functionality you can understand that IdeaVim has a bit different behavior, but you
  *   cannot fix it right now because of any reasons (bugs in IDE,
  *   the impossibility of this functionality in IDEA (*[shouldBeFixed] == false*), leak of time for fixing).
  *   In that case, you should NOT remove the corresponding test or leave it without any marks that this test
- *   not fully convenient with vim, but leave the test with IdeaVim's behaviour and put this annotation
+ *   not fully convenient with vim, but leave the test with IdeaVim's behavior and put this annotation
  *   with description of how original vim works.
  *
- * Note that using this annotation should be avoided as much as possible and behaviour of IdeaVim should be as close
+ * Note that using this annotation should be avoided as much as possible and behavior of IdeaVim should be as close
  *   to vim as possible.
  */
 @Retention(AnnotationRetention.SOURCE)
 @Target(AnnotationTarget.FUNCTION)
-annotation class VimBehaviourDiffers(
+annotation class VimBehaviorDiffers(
   val originalVimAfter: String = "",
   val description: String = "",
   val shouldBeFixed: Boolean = true
 )
 
+/**
+ * [VimFunctionMark] and [VimTestFunction] are the simple annotations that simplify to bind test
+ *   and functions that are used in that test, but aren't targets of this test
+ *
+ *   E.g. if you test `n` command and you want to use next command sequence `*n` you can put this test in
+ *     SearchAgainNextActionTest test class (because main test target is `n` command) and annotate this function
+ *     with @VimTestFunction("com.maddyhome.idea.vim.action.motion.search.SearchWholeWordForwardAction") to mark that
+ *     this test also uses `*` command.
+ *
+ * [VimFunctionMark] should annotate some method or class and provide and unique label for it
+ * [VimTestFunction] provides marks that point to commands that are tested with this function. Full class name or values
+ *   of [VimFunctionMark] can be used as marks.
+ *
+ * These annotations doesn't affect code behavior, but created only for development purposes
+ */
+@Retention(AnnotationRetention.SOURCE)
+@Target(AnnotationTarget.FUNCTION, AnnotationTarget.CLASS)
+annotation class VimFunctionMark(val value: String)
+
+@Retention(AnnotationRetention.SOURCE)
+@Target(AnnotationTarget.FUNCTION)
+annotation class VimTestFunction(vararg val value: String)
+
 fun <T : Comparable<T>> sort(a: T, b: T) = if (a > b) b to a else a to b
+
 inline fun <reified T : Enum<T>> noneOfEnum(): EnumSet<T> = EnumSet.noneOf(T::class.java)
 inline fun <reified T : Enum<T>> enumSetOf(vararg value: T): EnumSet<T> = when (value.size) {
   0 -> noneOfEnum()
@@ -74,3 +100,9 @@ inline fun Editor.vimForEachCaret(action: (caret: Caret) -> Unit) {
   }
 }
 
+fun Editor.getTopLevelEditor() = if (this is EditorWindow) this.delegate else this
+
+fun Editor.isTemplateActive(): Boolean {
+  val project = this.project ?: return false
+  return TemplateManager.getInstance(project).getActiveTemplate(this) != null
+}

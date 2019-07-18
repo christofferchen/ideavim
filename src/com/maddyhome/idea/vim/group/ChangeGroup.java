@@ -20,8 +20,6 @@ package com.maddyhome.idea.vim.group;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.intellij.codeInsight.template.Template;
-import com.intellij.codeInsight.template.TemplateManager;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.DataContext;
@@ -62,6 +60,7 @@ import com.maddyhome.idea.vim.listener.VimListenerSuppressor;
 import com.maddyhome.idea.vim.option.BoundListOption;
 import com.maddyhome.idea.vim.option.OptionsManager;
 import kotlin.Pair;
+import kotlin.text.StringsKt;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -849,10 +848,8 @@ public class ChangeGroup {
   }
 
   private boolean activeTemplateWithLeftRightMotion(Editor editor, KeyStroke keyStroke) {
-    Template template =
-      TemplateManager.getInstance(Objects.requireNonNull(editor.getProject())).getActiveTemplate(editor);
-    return template != null &&
-           (keyStroke.getKeyCode() == KeyEvent.VK_LEFT || keyStroke.getKeyCode() == KeyEvent.VK_RIGHT);
+    return HelperKt.isTemplateActive(editor)
+      && (keyStroke.getKeyCode() == KeyEvent.VK_LEFT || keyStroke.getKeyCode() == KeyEvent.VK_RIGHT);
   }
 
   /**
@@ -1755,7 +1752,7 @@ public class ChangeGroup {
   }
 
   private static void resetCaret(@NotNull VirtualFile virtualFile, Project proj, boolean insert) {
-    logger.debug("resetCaret");
+    logger.info("Reset caret to a " + (insert ? "non-block" : "block") + " shape");
     Document doc = FileDocumentManager.getInstance().getDocument(virtualFile);
     if (doc == null) return; // Must be no text editor (such as image)
     Editor[] editors = EditorFactory.getInstance().getEditors(doc, proj);
@@ -1925,7 +1922,7 @@ public class ChangeGroup {
       int num = (int)Long.parseLong(text.substring(2), 16);
       num += count;
       number = Integer.toHexString(num);
-      number = StringHelper.rightJustify(number, text.length() - 2, '0');
+      number = StringsKt.padStart(number, text.length() - 2, '0');
 
       if (!lastLower) {
         number = number.toUpperCase();
@@ -1937,7 +1934,7 @@ public class ChangeGroup {
       int num = (int)Long.parseLong(text, 8);
       num += count;
       number = Integer.toOctalString(num);
-      number = "0" + StringHelper.rightJustify(number, text.length() - 1, '0');
+      number = "0" + StringsKt.padStart(number, text.length() - 1, '0');
     }
     else if (alpha && Character.isLetter(ch)) {
       ch += count;
@@ -1963,7 +1960,7 @@ public class ChangeGroup {
           neg = true;
           number = number.substring(1);
         }
-        number = StringHelper.rightJustify(number, len, '0');
+        number = StringsKt.padStart(number, len, '0');
         if (neg) {
           number = "-" + number;
         }

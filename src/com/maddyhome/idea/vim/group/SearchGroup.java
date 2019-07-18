@@ -111,6 +111,790 @@ public class SearchGroup {
     VimPlugin.getHistory().addEntry(HistoryGroup.SEARCH, lastPattern);
   }
 
+  @NotNull
+  private static List<TextRange> findAll(@NotNull Editor editor,
+                                         @NotNull String pattern,
+                                         int startLine,
+                                         int endLine,
+                                         boolean ignoreCase) {
+    final List<TextRange> results = Lists.newArrayList();
+    final int lineCount = EditorHelper.getLineCount(editor);
+    final int actualEndLine = endLine == -1 ? lineCount : endLine;
+
+    final RegExp.regmmatch_T regMatch = new RegExp.regmmatch_T();
+    final RegExp regExp = new RegExp();
+    regMatch.regprog = regExp.vim_regcomp(pattern, 1);
+    if (regMatch.regprog == null) {
+      return results;
+    }
+
+    regMatch.rmm_ic = ignoreCase;
+
+    int col = 0;
+    for (int line = startLine; line <= actualEndLine; ) {
+      int matchedLines = regExp.vim_regexec_multi(regMatch, editor, lineCount, line, col);
+      if (matchedLines > 0) {
+        final CharacterPosition startPos = new CharacterPosition(line + regMatch.startpos[0].lnum,
+                                                                 regMatch.startpos[0].col);
+        final CharacterPosition endPos = new CharacterPosition(line + regMatch.endpos[0].lnum,
+                                                               regMatch.endpos[0].col);
+        int start = startPos.toOffset(editor);
+        int end = endPos.toOffset(editor);
+        results.add(new TextRange(start, end));
+
+        if (start != end) {
+          line += matchedLines - 1;
+          col = endPos.column;
+        }
+        else {
+          line += matchedLines;
+          col = 0;
+        }
+      }
+      else {
+        line++;
+        col = 0;
+      }
+    }
+
+    return results;
+  }
+
+  @NotNull
+  private static ReplaceConfirmationChoice confirmChoice(@NotNull Editor editor, @NotNull String match) {
+    final Ref<ReplaceConfirmationChoice> result = Ref.create(ReplaceConfirmationChoice.QUIT);
+    // XXX: The Ex entry panel is used only for UI here, its logic might be inappropriate for this method
+    final ExEntryPanel exEntryPanel = ExEntryPanel.getInstance();
+    exEntryPanel.activate(editor, new EditorDataContext(editor), "Replace with " + match + " (y/n/a/q/l)?", "", 1);
+    ModalEntry.activate(key -> {
+      final ReplaceConfirmationChoice choice;
+      final char c = key.getKeyChar();
+      if (StringHelper.isCloseKeyStroke(key) || c == 'q') {
+        choice = ReplaceConfirmationChoice.QUIT;
+      }
+      else if (c == 'y') {
+        choice = ReplaceConfirmationChoice.SUBSTITUTE_THIS;
+      }
+      else if (c == 'l') {
+        choice = ReplaceConfirmationChoice.SUBSTITUTE_LAST;
+      }
+      else if (c == 'n') {
+        choice = ReplaceConfirmationChoice.SKIP;
+      }
+      else if (c == 'a') {
+        choice = ReplaceConfirmationChoice.SUBSTITUTE_ALL;
+      }
+      else {
+        return true;
+      }
+      result.set(choice);
+      exEntryPanel.deactivate(true);
+      return false;
+    });
+    return result.get();
+  }
+
+  private static boolean shouldIgnoreCase(@NotNull String pattern, boolean ignoreSmartCase) {
+    boolean sc = !ignoreSmartCase && OptionsManager.INSTANCE.getSmartcase().isSet();
+    boolean ic = OptionsManager.INSTANCE.getIgnorecase().isSet();
+
+    return ic && !(sc && StringHelper.containsUpperCase(pattern));
+  }
+
+  public int search(@NotNull Editor editor, @NotNull String command, int count, EnumSet<CommandFlags> flags, boolean moveCursor) {
+    return search(editor, editor.getCaretModel().getPrimaryCaret(), command, count, flags, moveCursor);
+  }
+
+  public int search(@NotNull Editor editor, @NotNull Caret caret, @NotNull String command, int count, EnumSet<CommandFlags> flags,
+                    boolean moveCursor) {
+    final int res = search(editor, command, caret.getOffset(), count, flags);
+
+    if (res != -1 && moveCursor) {
+      VimPlugin.getMark().saveJumpLocation(editor);
+      MotionGroup.moveCaret(editor, caret, res);
+    }
+
+    return res;
+  }
+
+  public int search(@NotNull Editor editor, @NotNull String command, int startOffset, int count, EnumSet<CommandFlags> flags) {
+    int dir = DIR_FORWARDS;
+    char type = '/';
+    String pattern = lastSearch;
+    String offset = lastOffset;
+    if (flags.contains(CommandFlags.FLAG_SEARCH_REV)) {
+      dir = DIR_BACKWARDS;
+      type = '?';
+    }
+
+    if (command.length() > 0) {
+      if (command.charAt(0) != type) {
+        CharPointer p = new CharPointer(command);
+        CharPointer end = RegExp.skip_regexp(p.ref(0), type, true);
+        pattern = p.substring(end.pointer() - p.pointer());
+        if (logger.isDebugEnabled()) logger.debug("pattern=" + pattern);
+        if (p.charAt() != type) {
+          if (end.charAt() == type) {
+            end.inc();
+            offset = end.toString();
+          } else {
+            logger.debug("no offset");
+            offset = "";
+          }
+        }
+        else {
+          p.inc();
+          offset = p.toString();
+          if (logger.isDebugEnabled()) logger.debug("offset=" + offset);
+        }
+      }
+      else if (command.length() == 1) {
+        offset = "";
+      }
+      else {
+        offset = command.substring(1);
+        if (logger.isDebugEnabled()) logger.debug("offset=" + offset);
+      }
+    }
+
+    lastSearch = pattern;
+    lastIgnoreSmartCase = false;
+    if (pattern != null) {
+      setLastPattern(editor, pattern);
+    }
+    lastOffset = offset;
+    lastDir = dir;
+
+    if (logger.isDebugEnabled()) {
+      logger.debug("lastSearch=" + lastSearch);
+      logger.debug("lastOffset=" + lastOffset);
+      logger.debug("lastDir=" + lastDir);
+    }
+
+    resetShowSearchHighlight();
+    forceUpdateSearchHighlights();
+
+    return findItOffset(editor, startOffset, count, lastDir);
+  }
+
+  public int searchWord(@NotNull Editor editor, @NotNull Caret caret, int count, boolean whole, int dir) {
+    TextRange range = SearchHelper.findWordUnderCursor(editor, caret);
+    if (range == null) {
+      logger.warn("No range was found");
+      return -1;
+    }
+
+    StringBuilder pattern = new StringBuilder();
+    if (whole) {
+      pattern.append("\\<");
+    }
+    pattern.append(EditorHelper.getText(editor, range.getStartOffset(), range.getEndOffset()));
+    if (whole) {
+      pattern.append("\\>");
+    }
+
+    MotionGroup.moveCaret(editor, caret, range.getStartOffset());
+
+    lastSearch = pattern.toString();
+    lastIgnoreSmartCase = true;
+    setLastPattern(editor, lastSearch);
+    lastOffset = "";
+    lastDir = dir;
+
+    resetShowSearchHighlight();
+    forceUpdateSearchHighlights();
+
+    return findItOffset(editor, caret.getOffset(), count, lastDir);
+  }
+
+  public int searchNext(@NotNull Editor editor, @NotNull Caret caret, int count) {
+    return searchNextWithDirection(editor, caret, count, lastDir);
+  }
+
+  public int searchPrevious(@NotNull Editor editor, @NotNull Caret caret, int count) {
+    return searchNextWithDirection(editor, caret, count, -lastDir);
+  }
+
+  public int searchNextFromOffset(@NotNull Editor editor, int offset, int count) {
+    resetShowSearchHighlight();
+    updateSearchHighlights();
+    return findItOffset(editor, offset, count, 1);
+  }
+
+  private int searchNextWithDirection(@NotNull Editor editor, @NotNull Caret caret, int count, int dir) {
+    resetShowSearchHighlight();
+    updateSearchHighlights();
+    return findItOffset(editor, caret.getOffset(), count, dir);
+  }
+
+  private void resetShowSearchHighlight() {
+    showSearchHighlight = OptionsManager.INSTANCE.getHlsearch().isSet();
+  }
+
+  public void clearSearchHighlight() {
+    showSearchHighlight = false;
+    updateSearchHighlights();
+  }
+
+  private void forceUpdateSearchHighlights() {
+    updateSearchHighlights(lastSearch, lastIgnoreSmartCase, showSearchHighlight, true);
+  }
+
+  private void updateSearchHighlights() {
+    updateSearchHighlights(lastSearch, lastIgnoreSmartCase, showSearchHighlight, false);
+  }
+
+  public void resetIncsearchHighlights() {
+    updateSearchHighlights(lastSearch, lastIgnoreSmartCase, showSearchHighlight, true);
+  }
+
+  public void updateIncsearchHighlights(Editor editor, String pattern, boolean forwards, int caretOffset, @Nullable LineRange searchRange) {
+    // searchStartOffset is used to find the closest match. caretOffset is used to reset the caret if there is no match.
+    // If searching based on e.g. :%s/... then these values are not going to be the same
+    final int searchStartOffset = searchRange != null ? EditorHelper.getLineStartOffset(editor, searchRange.getStartLine()) : caretOffset;
+    final boolean showHighlights = OptionsManager.INSTANCE.getHlsearch().isSet();
+    int currentMatchOffset = updateSearchHighlights(pattern, false, showHighlights, searchStartOffset, searchRange, forwards, false);
+    LogicalPosition scrollTo = editor.offsetToLogicalPosition(currentMatchOffset == -1 ? caretOffset : currentMatchOffset);
+    editor.getScrollingModel().scrollTo(scrollTo, ScrollType.MAKE_VISIBLE);
+  }
+
+  private void updateSearchHighlights(@Nullable String pattern, boolean shouldIgnoreSmartCase, boolean showHighlights, boolean forceUpdate) {
+    updateSearchHighlights(pattern, shouldIgnoreSmartCase, showHighlights, -1, null, true, forceUpdate);
+  }
+
+  /**
+   * Refreshes current search highlights for all editors of currently active text editor/document
+   */
+  private int updateSearchHighlights(@Nullable String pattern, boolean shouldIgnoreSmartCase, boolean showHighlights,
+                                     int initialOffset, @Nullable LineRange searchRange, boolean forwards, boolean forceUpdate) {
+    int currentMatchOffset = -1;
+
+    Project[] projects = ProjectManager.getInstance().getOpenProjects();
+    for (Project project : projects) {
+      Editor current = FileEditorManager.getInstance(project).getSelectedTextEditor();
+      Editor[] editors = current == null ? null : EditorFactory.getInstance().getEditors(current.getDocument(), project);
+      if (editors == null) {
+        continue;
+      }
+
+      for (final Editor editor : editors) {
+        // Force update for the situations where the text is the same, but the ignore case values have changed.
+        // E.g. Use `*` to search for a word (which ignores smartcase), then use `/<Up>` to search for the same pattern,
+        // which will match smartcase. Or changing the smartcase/ignorecase settings
+        if (shouldRemoveSearchHighlight(editor, pattern, showHighlights) || forceUpdate) {
+          removeSearchHighlight(editor);
+        }
+
+        if (shouldAddSearchHighlight(editor, pattern, showHighlights)) {
+          final int startLine = searchRange == null ? 0 : searchRange.getStartLine();
+          final int endLine = searchRange == null ? -1 : searchRange.getEndLine();
+          List<TextRange> results = findAll(editor, pattern, startLine, endLine, shouldIgnoreCase(pattern, shouldIgnoreSmartCase));
+          if (!results.isEmpty()) {
+            currentMatchOffset = findClosestMatch(editor, results, initialOffset, forwards);
+            highlightSearchResults(editor, pattern, results, currentMatchOffset);
+          }
+          UserDataManager.setVimLastSearch(editor, pattern);
+        }
+        else if (!showHighlights && initialOffset != -1) {
+          // Incremental search always highlights current match. We know it's incsearch if we have a valid initial offset
+          final boolean wrap = OptionsManager.INSTANCE.getWrapscan().isSet();
+          final TextRange result = findIt(editor, pattern, initialOffset, 1,
+            forwards ? DIR_FORWARDS : DIR_BACKWARDS, shouldIgnoreSmartCase, wrap, false, true);
+          if (result != null) {
+            currentMatchOffset = result.getStartOffset();
+            final List<TextRange> results = Collections.singletonList(result);
+            highlightSearchResults(editor, pattern, results, currentMatchOffset);
+          }
+        }
+      }
+    }
+
+    return currentMatchOffset;
+  }
+
+  /**
+   * Remove current search highlights if hlSearch is false, or if the pattern is changed
+   */
+  private boolean shouldRemoveSearchHighlight(@NotNull Editor editor, String newPattern, boolean hlSearch) {
+    return !hlSearch || (newPattern != null && !newPattern.equals(UserDataManager.getVimLastSearch(editor)));
+  }
+
+  /**
+   * Add search highlights if hlSearch is true and the pattern is changed
+   */
+  private boolean shouldAddSearchHighlight(@NotNull Editor editor, @Nullable String newPattern, boolean hlSearch) {
+    return hlSearch && newPattern != null && !newPattern.equals(UserDataManager.getVimLastSearch(editor)) && !Objects.equals(newPattern, "");
+  }
+
+  private void highlightSearchLines(@NotNull Editor editor, int startLine, int endLine) {
+    if (lastSearch != null) {
+      final List<TextRange> results = findAll(editor, lastSearch, startLine, endLine, shouldIgnoreCase(lastSearch, lastIgnoreSmartCase));
+      highlightSearchResults(editor, lastSearch, results, -1);
+    }
+  }
+
+  private int findClosestMatch(@NotNull Editor editor, List<TextRange> results, int initialOffset, boolean forwards) {
+    if (results.isEmpty() || initialOffset == -1) {
+      return -1;
+    }
+
+    final int size = EditorHelper.getFileSize(editor);
+    final TextRange max = Collections.max(results, (r1, r2) -> {
+      final int d1 = distance(r1, initialOffset, forwards, size);
+      final int d2 = distance(r2, initialOffset, forwards, size);
+      if (d1 < 0 && d2 >= 0) {
+        return Integer.MAX_VALUE;
+      }
+      return d2 - d1;
+    });
+
+    if (!OptionsManager.INSTANCE.getWrapscan().isSet()) {
+      final int start = max.getStartOffset();
+      if (forwards && start < initialOffset) {
+        return -1;
+      }
+      else if (start >= initialOffset) {
+        return -1;
+      }
+    }
+
+    return max.getStartOffset();
+  }
+
+  @Nullable
+  public TextRange getNextSearchRange(@NotNull Editor editor, int count, boolean forwards) {
+    editor.getCaretModel().removeSecondaryCarets();
+    TextRange current = findUnderCaret(editor);
+
+    if (current == null || CommandStateHelper.inVisualMode(editor) && atEdgeOfGnRange(current, editor, forwards)) {
+      current = findNextSearchForGn(editor, count, forwards);
+    }
+    else if (count > 1) {
+      current = findNextSearchForGn(editor, count - 1, forwards);
+    }
+    return current;
+  }
+
+  private boolean atEdgeOfGnRange(@NotNull TextRange nextRange, @NotNull Editor editor, boolean forwards) {
+    int currentPosition = editor.getCaretModel().getOffset();
+    if (forwards) {
+      return nextRange.getEndOffset() - VimPlugin.getVisualMotion().getSelectionAdj() == currentPosition;
+    }
+    else {
+      return nextRange.getStartOffset() == currentPosition;
+    }
+  }
+
+  @Nullable
+  private TextRange findNextSearchForGn(@NotNull Editor editor, int count, boolean forwards) {
+    if (forwards) {
+      return findIt(editor, lastSearch, editor.getCaretModel().getOffset(), count, DIR_FORWARDS, false, true, false, true);
+    } else {
+      return searchBackward(editor, editor.getCaretModel().getOffset(), count);
+    }
+  }
+
+  @Nullable
+  private TextRange findUnderCaret(@NotNull Editor editor) {
+    final TextRange backSearch = searchBackward(editor, editor.getCaretModel().getOffset() + 1, 1);
+    if (backSearch == null) return null;
+    return backSearch.contains(editor.getCaretModel().getOffset()) ? backSearch : null;
+  }
+
+  @Nullable
+  private TextRange searchBackward(@NotNull Editor editor, int offset, int count) {
+    // Backward search returns wrongs end offset for some cases. That's why we should perform additional forward search
+    final TextRange foundBackward = findIt(editor, lastSearch, offset, count, DIR_BACKWARDS, false, true, false, true);
+    if (foundBackward == null) return null;
+    int startOffset = foundBackward.getStartOffset() - 1;
+    if (startOffset < 0) startOffset = EditorHelper.getFileSize(editor);
+    return findIt(editor, lastSearch, startOffset, 1, DIR_FORWARDS, false, true, false, true);
+  }
+
+  private static int distance(@NotNull TextRange range, int pos, boolean forwards, int size) {
+    final int start = range.getStartOffset();
+    if (start <= pos) {
+      return forwards ? size - pos + start : pos - start;
+    }
+    else {
+      return forwards ? start - pos : pos + size - start;
+    }
+  }
+
+  @SuppressWarnings("SameParameterValue")
+  @Nullable
+  private static TextRange findIt(@NotNull Editor editor, @Nullable String pattern, int startOffset, int count, int dir,
+                                 boolean ignoreSmartCase, boolean wrap, boolean showMessages, boolean wholeFile) {
+    if (pattern == null || pattern.length() == 0) {
+      logger.warn("Pattern is null or empty. Cannot perform search");
+      return null;
+    }
+
+    //RE sp;
+    RegExp sp;
+    RegExp.regmmatch_T regmatch = new RegExp.regmmatch_T();
+    regmatch.rmm_ic = shouldIgnoreCase(pattern, ignoreSmartCase);
+    sp = new RegExp();
+    regmatch.regprog = sp.vim_regcomp(pattern, 1);
+    if (regmatch.regprog == null) {
+      if (logger.isDebugEnabled()) logger.debug("bad pattern: " + pattern);
+      return null;
+    }
+
+    /*
+    int extra_col = 1;
+    int startcol = -1;
+    boolean found = false;
+    boolean match_ok = true;
+    LogicalPosition pos = editor.offsetToLogicalPosition(startOffset);
+    LogicalPosition endpos = null;
+    //REMatch match = null;
+    */
+
+    CharacterPosition lpos = CharacterPosition.Companion.fromOffset(editor, startOffset);
+    RegExp.lpos_T pos = new RegExp.lpos_T();
+    pos.lnum = lpos.line;
+    pos.col = lpos.column;
+
+    int found;
+    int lnum;           /* no init to shut up Apollo cc */
+    //RegExp.regmmatch_T regmatch;
+    CharPointer ptr;
+    int matchcol;
+    int startcol;
+    RegExp.lpos_T endpos = new RegExp.lpos_T();
+    int loop;
+    RegExp.lpos_T start_pos;
+    boolean at_first_line;
+    int extra_col = 1;
+    boolean match_ok;
+    long nmatched;
+    //int         submatch = 0;
+    int first_lnum;
+
+    int lineCount = EditorHelper.getLineCount(editor);
+    int startLine = 0;
+    int endLine = lineCount;
+
+    do  /* loop for count */ {
+      start_pos = new RegExp.lpos_T(pos);       /* remember start pos for detecting no match */
+      found = 0;              /* default: not found */
+      at_first_line = true;   /* default: start in first line */
+      if (pos.lnum == -1)     /* correct lnum for when starting in line 0 */ {
+        pos.lnum = 0;
+        pos.col = 0;
+        at_first_line = false;  /* not in first line now */
+      }
+
+      /*
+      * Start searching in current line, unless searching backwards and
+      * we're in column 0.
+      */
+      if (dir == DIR_BACKWARDS && start_pos.col == 0) {
+        lnum = pos.lnum - 1;
+        at_first_line = false;
+      }
+      else {
+        lnum = pos.lnum;
+      }
+
+      int lcount = EditorHelper.getLineCount(editor);
+      for (loop = 0; loop <= 1; ++loop)   /* loop twice if 'wrapscan' set */ {
+        if (!wholeFile) {
+          startLine = lnum;
+          endLine = lnum + 1;
+        }
+        for (; lnum >= startLine && lnum < endLine; lnum += dir, at_first_line = false) {
+          /*
+          * Look for a match somewhere in the line.
+          */
+          first_lnum = lnum;
+          nmatched = sp.vim_regexec_multi(regmatch, editor, lcount, lnum, 0);
+          if (nmatched > 0) {
+            /* match may actually be in another line when using \zs */
+            lnum += regmatch.startpos[0].lnum;
+            ptr = new CharPointer(EditorHelper.getLineBuffer(editor, lnum));
+            startcol = regmatch.startpos[0].col;
+            endpos = new RegExp.lpos_T(regmatch.endpos[0]);
+
+            /*
+            * Forward search in the first line: match should be after
+            * the start position. If not, continue at the end of the
+            * match (this is vi compatible) or on the next char.
+            */
+            if (dir == DIR_FORWARDS && at_first_line) {
+              match_ok = true;
+              /*
+              * When match lands on a NUL the cursor will be put
+              * one back afterwards, compare with that position,
+              * otherwise "/$" will get stuck on end of line.
+              */
+              while ((startcol - (startcol == ptr.strlen() ? 1 : 0)) < (start_pos.col + extra_col)) {
+                if (nmatched > 1) {
+                  /* end is in next line, thus no match in
+               * this line */
+                  match_ok = false;
+                  break;
+                }
+                matchcol = endpos.col;
+                /* for empty match: advance one char */
+                if (matchcol == startcol && ptr.charAt(matchcol) != '\u0000') {
+                  ++matchcol;
+                }
+                if (ptr.charAt(matchcol) == '\u0000' ||
+                    (nmatched = sp.vim_regexec_multi(regmatch, editor, lcount, lnum, matchcol)) == 0) {
+                  match_ok = false;
+                  break;
+                }
+                startcol = regmatch.startpos[0].col;
+                endpos = new RegExp.lpos_T(regmatch.endpos[0]);
+
+                /* Need to get the line pointer again, a
+        * multi-line search may have made it invalid. */
+                ptr = new CharPointer(EditorHelper.getLineBuffer(editor, lnum));
+              }
+              if (!match_ok) {
+                continue;
+              }
+            }
+            if (dir == DIR_BACKWARDS) {
+              /*
+              * Now, if there are multiple matches on this line,
+              * we have to get the last one. Or the last one before
+              * the cursor, if we're on that line.
+              * When putting the new cursor at the end, compare
+              * relative to the end of the match.
+              */
+              match_ok = false;
+              for (; ; ) {
+                if (!at_first_line || (CharacterPosition.charOffsetOnLineToColumn(editor, lnum, regmatch.startpos[0].col + extra_col) <= start_pos.col)) {
+                  /* Remember this position, we use it if it's
+           * the last match in the line. */
+                  match_ok = true;
+                  startcol = regmatch.startpos[0].col;
+                  endpos = new RegExp.lpos_T(regmatch.endpos[0]);
+                }
+                else {
+                  break;
+                }
+
+                /*
+                * We found a valid match, now check if there is
+                * another one after it.
+                * If vi-compatible searching, continue at the end
+                * of the match, otherwise continue one position
+                * forward.
+                */
+                if (nmatched > 1) {
+                  break;
+                }
+                matchcol = endpos.col;
+                /* for empty match: advance one char */
+                if (matchcol == startcol && ptr.charAt(matchcol) != '\u0000') {
+                  ++matchcol;
+                }
+                if (ptr.charAt(matchcol) == '\u0000' ||
+                    (nmatched = sp.vim_regexec_multi(regmatch, editor, lcount, lnum, matchcol)) == 0) {
+                  break;
+                }
+
+                /* Need to get the line pointer again, a
+        * multi-line search may have made it invalid. */
+                ptr = new CharPointer(EditorHelper.getLineBuffer(editor, lnum));
+              }
+
+              /*
+              * If there is only a match after the cursor, skip
+              * this match.
+              */
+              if (!match_ok) {
+                continue;
+              }
+            }
+
+            pos.lnum = lnum;
+            pos.col = startcol;
+            endpos.lnum += first_lnum;
+            found = 1;
+
+            /* Set variables used for 'incsearch' highlighting. */
+            //search_match_lines = endpos.lnum - (lnum - first_lnum);
+            //search_match_endcol = endpos.col;
+            break;
+          }
+          //line_breakcheck();      /* stop if ctrl-C typed */
+          //if (got_int)
+          //    break;
+
+          if (loop != 0 && lnum == start_pos.lnum) {
+            break;          /* if second loop, stop where started */
+          }
+        }
+        at_first_line = false;
+
+        /*
+        * stop the search if wrapscan isn't set, after an interrupt and
+        * after a match
+        */
+        if (!wrap || found != 0) {
+          break;
+        }
+
+        /*
+        * If 'wrapscan' is set we continue at the other end of the file.
+        * If 'shortmess' does not contain 's', we give a message.
+        * This message is also remembered in keep_msg for when the screen
+        * is redrawn. The keep_msg is cleared whenever another message is
+        * written.
+        */
+        if (dir == DIR_BACKWARDS)    /* start second loop at the other end */ {
+          lnum = lineCount - 1;
+          //if (!shortmess(SHM_SEARCH) && (options & SEARCH_MSG))
+          //    give_warning((char_u *)_(top_bot_msg), TRUE);
+        }
+        else {
+          lnum = 0;
+          //if (!shortmess(SHM_SEARCH) && (options & SEARCH_MSG))
+          //    give_warning((char_u *)_(bot_top_msg), TRUE);
+        }
+      }
+      //if (got_int || called_emsg || break_loop)
+      //    break;
+    }
+    while (--count > 0 && found != 0);   /* stop after count matches or no match */
+
+    if (found == 0)             /* did not find it */ {
+      //if ((options & SEARCH_MSG) == SEARCH_MSG)
+      if (showMessages) {
+        if (wrap) {
+          VimPlugin.showMessage(MessageHelper.message(Msg.e_patnotf2, pattern));
+        }
+        else if (lnum <= 0) {
+          VimPlugin.showMessage(MessageHelper.message(Msg.E384, pattern));
+        }
+        else {
+          VimPlugin.showMessage(MessageHelper.message(Msg.E385, pattern));
+        }
+      }
+      return null;
+    }
+
+    //return new TextRange(editor.logicalPositionToOffset(new LogicalPosition(pos.lnum, pos.col)),
+    //    editor.logicalPositionToOffset(new LogicalPosition(endpos.lnum, endpos.col)));
+    //return new TextRange(editor.logicalPositionToOffset(new LogicalPosition(pos.lnum, 0)) + pos.col,
+    //    editor.logicalPositionToOffset(new LogicalPosition(endpos.lnum, 0)) + endpos.col);
+    return new TextRange(new CharacterPosition(pos.lnum, pos.col).toOffset(editor),
+                         new CharacterPosition(endpos.lnum, endpos.col).toOffset(editor));
+  }
+
+  private static void highlightSearchResults(@NotNull Editor editor, @NotNull String pattern, List<TextRange> results,
+                                             int currentMatchOffset) {
+    Collection<RangeHighlighter> highlighters = UserDataManager.getVimLastHighlighters(editor);
+    if (highlighters == null) {
+      highlighters = new ArrayList<>();
+      UserDataManager.setVimLastHighlighters(editor, highlighters);
+    }
+
+    for (TextRange range : results) {
+      final boolean current = range.getStartOffset() == currentMatchOffset;
+      final RangeHighlighter highlighter = highlightMatch(editor, range.getStartOffset(), range.getEndOffset(), current, pattern);
+      highlighters.add(highlighter);
+    }
+  }
+
+  private int findItOffset(@NotNull Editor editor, int startOffset, int count, int dir) {
+    boolean wrap = OptionsManager.INSTANCE.getWrapscan().isSet();
+    logger.info("Perform search. Direction: " + dir + " wrap: " + wrap);
+    TextRange range = findIt(editor, lastSearch, startOffset, count, dir, lastIgnoreSmartCase, wrap, true, true);
+    if (range == null) {
+      logger.warn("No range is found");
+      return -1;
+    }
+
+    ParsePosition pp = new ParsePosition(0);
+    int res = range.getStartOffset();
+
+    if (lastOffset == null) {
+      logger.warn("Last offset is null. Cannot perform search");
+      return -1;
+    }
+
+    if (lastOffset.length() == 0) {
+      return range.getStartOffset();
+    }
+    else if (Character.isDigit(lastOffset.charAt(0)) || lastOffset.charAt(0) == '+' || lastOffset.charAt(0) == '-') {
+      int lineOffset = 0;
+      if (lastOffset.equals("+")) {
+        lineOffset = 1;
+      }
+      else if (lastOffset.equals("-")) {
+        lineOffset = -1;
+      }
+      else {
+        if (lastOffset.charAt(0) == '+') {
+          lastOffset = lastOffset.substring(1);
+        }
+        NumberFormat nf = NumberFormat.getIntegerInstance();
+        pp = new ParsePosition(0);
+        Number num = nf.parse(lastOffset, pp);
+        if (num != null) {
+          lineOffset = num.intValue();
+        }
+      }
+
+      int line = editor.offsetToLogicalPosition(range.getStartOffset()).line;
+      int newLine = EditorHelper.normalizeLine(editor, line + lineOffset);
+
+      res = VimPlugin.getMotion().moveCaretToLineStart(editor, newLine);
+    }
+    else if ("ebs".indexOf(lastOffset.charAt(0)) != -1) {
+      int charOffset = 0;
+      if (lastOffset.length() >= 2) {
+        if ("+-".indexOf(lastOffset.charAt(1)) != -1) {
+          charOffset = 1;
+        }
+        NumberFormat nf = NumberFormat.getIntegerInstance();
+        pp = new ParsePosition(lastOffset.charAt(1) == '+' ? 2 : 1);
+        Number num = nf.parse(lastOffset, pp);
+        if (num != null) {
+          charOffset = num.intValue();
+        }
+      }
+
+      int base = range.getStartOffset();
+      if (lastOffset.charAt(0) == 'e') {
+        base = range.getEndOffset() - 1;
+      }
+
+      res = Math.max(0, Math.min(base + charOffset, EditorHelper.getFileSize(editor) - 1));
+    }
+
+    int ppos = pp.getIndex();
+    if (ppos < lastOffset.length() - 1 && lastOffset.charAt(ppos) == ';') {
+      EnumSet<CommandFlags> flags = EnumSet.noneOf(CommandFlags.class);
+      if (lastOffset.charAt(ppos + 1) == '/') {
+        flags.add(CommandFlags.FLAG_SEARCH_FWD);
+      }
+      else if (lastOffset.charAt(ppos + 1) == '?') {
+        flags.add(CommandFlags.FLAG_SEARCH_REV);
+      }
+      else {
+        return res;
+      }
+
+      if (lastOffset.length() - ppos > 2) {
+        ppos++;
+      }
+
+      res = search(editor, lastOffset.substring(ppos + 1), res, 1, flags);
+
+      return res;
+    }
+    else {
+      return res;
+    }
+  }
+
   public boolean searchAndReplace(@NotNull Editor editor, @NotNull Caret caret, @NotNull LineRange range,
                                   @NotNull String excmd, String exarg) {
     // Explicitly exit visual mode here, so that visual mode marks don't change when we move the cursor to a match.
@@ -368,8 +1152,8 @@ public class SearchGroup {
         int line = lnum + regmatch.startpos[0].lnum;
         CharacterPosition startpos = new CharacterPosition(lnum + regmatch.startpos[0].lnum, regmatch.startpos[0].col);
         CharacterPosition endpos = new CharacterPosition(lnum + regmatch.endpos[0].lnum, regmatch.endpos[0].col);
-        int startoff = EditorHelper.characterPositionToOffset(editor, startpos);
-        int endoff = EditorHelper.characterPositionToOffset(editor, endpos);
+        int startoff = startpos.toOffset(editor);
+        int endoff = endpos.toOffset(editor);
         int newend = startoff + match.length();
 
         if (do_all || line != lastLine) {
@@ -405,7 +1189,7 @@ public class SearchGroup {
           if (doReplace) {
             editor.getDocument().replaceString(startoff, endoff, match);
             lastMatch = startoff;
-            newpos = EditorHelper.offsetToCharacterPosition(editor, newend);
+            newpos = CharacterPosition.Companion.fromOffset(editor, newend);
 
             lnum += newpos.line - endpos.line;
             line2 += newpos.line - endpos.line;
@@ -445,784 +1229,6 @@ public class SearchGroup {
     }
 
     return true;
-  }
-
-  @NotNull
-  private static ReplaceConfirmationChoice confirmChoice(@NotNull Editor editor, @NotNull String match) {
-    final Ref<ReplaceConfirmationChoice> result = Ref.create(ReplaceConfirmationChoice.QUIT);
-    // XXX: The Ex entry panel is used only for UI here, its logic might be inappropriate for this method
-    final ExEntryPanel exEntryPanel = ExEntryPanel.getInstance();
-    exEntryPanel.activate(editor, new EditorDataContext(editor), "Replace with " + match + " (y/n/a/q/l)?", "", 1);
-    ModalEntry.activate(key -> {
-      final ReplaceConfirmationChoice choice;
-      final char c = key.getKeyChar();
-      if (StringHelper.isCloseKeyStroke(key) || c == 'q') {
-        choice = ReplaceConfirmationChoice.QUIT;
-      }
-      else if (c == 'y') {
-        choice = ReplaceConfirmationChoice.SUBSTITUTE_THIS;
-      }
-      else if (c == 'l') {
-        choice = ReplaceConfirmationChoice.SUBSTITUTE_LAST;
-      }
-      else if (c == 'n') {
-        choice = ReplaceConfirmationChoice.SKIP;
-      }
-      else if (c == 'a') {
-        choice = ReplaceConfirmationChoice.SUBSTITUTE_ALL;
-      }
-      else {
-        return true;
-      }
-      result.set(choice);
-      exEntryPanel.deactivate(true);
-      return false;
-    });
-    return result.get();
-  }
-
-  private static boolean shouldIgnoreCase(@NotNull String pattern, boolean ignoreSmartCase) {
-    boolean sc = !ignoreSmartCase && OptionsManager.INSTANCE.getSmartcase().isSet();
-    boolean ic = OptionsManager.INSTANCE.getIgnorecase().isSet();
-
-    return ic && !(sc && StringHelper.containsUpperCase(pattern));
-  }
-
-  public int search(@NotNull Editor editor, @NotNull String command, int count, EnumSet<CommandFlags> flags, boolean moveCursor) {
-    return search(editor, editor.getCaretModel().getPrimaryCaret(), command, count, flags, moveCursor);
-  }
-
-  public int search(@NotNull Editor editor, @NotNull Caret caret, @NotNull String command, int count, EnumSet<CommandFlags> flags,
-                    boolean moveCursor) {
-    final int res = search(editor, command, caret.getOffset(), count, flags);
-
-    if (res != -1 && moveCursor) {
-      VimPlugin.getMark().saveJumpLocation(editor);
-      MotionGroup.moveCaret(editor, caret, res);
-    }
-
-    return res;
-  }
-
-  public int search(@NotNull Editor editor, @NotNull String command, int startOffset, int count, EnumSet<CommandFlags> flags) {
-    int dir = DIR_FORWARDS;
-    char type = '/';
-    String pattern = lastSearch;
-    String offset = lastOffset;
-    if (flags.contains(CommandFlags.FLAG_SEARCH_REV)) {
-      dir = DIR_BACKWARDS;
-      type = '?';
-    }
-
-    if (command.length() > 0) {
-      if (command.charAt(0) != type) {
-        CharPointer p = new CharPointer(command);
-        CharPointer end = RegExp.skip_regexp(p.ref(0), type, true);
-        pattern = p.substring(end.pointer() - p.pointer());
-        if (logger.isDebugEnabled()) logger.debug("pattern=" + pattern);
-        if (p.charAt() != type) {
-          if (end.charAt() == type) {
-            end.inc();
-            offset = end.toString();
-          } else {
-            logger.debug("no offset");
-            offset = "";
-          }
-        }
-        else {
-          p.inc();
-          offset = p.toString();
-          if (logger.isDebugEnabled()) logger.debug("offset=" + offset);
-        }
-      }
-      else if (command.length() == 1) {
-        offset = "";
-      }
-      else {
-        offset = command.substring(1);
-        if (logger.isDebugEnabled()) logger.debug("offset=" + offset);
-      }
-    }
-
-    lastSearch = pattern;
-    lastIgnoreSmartCase = false;
-    if (pattern != null) {
-      setLastPattern(editor, pattern);
-    }
-    lastOffset = offset;
-    lastDir = dir;
-
-    if (logger.isDebugEnabled()) {
-      logger.debug("lastSearch=" + lastSearch);
-      logger.debug("lastOffset=" + lastOffset);
-      logger.debug("lastDir=" + lastDir);
-    }
-
-    resetShowSearchHighlight();
-    forceUpdateSearchHighlights();
-
-    return findItOffset(editor, startOffset, count, lastDir);
-  }
-
-  public int searchWord(@NotNull Editor editor, @NotNull Caret caret, int count, boolean whole, int dir) {
-    TextRange range = SearchHelper.findWordUnderCursor(editor, caret);
-    if (range == null) {
-      return -1;
-    }
-
-    StringBuilder pattern = new StringBuilder();
-    if (whole) {
-      pattern.append("\\<");
-    }
-    pattern.append(EditorHelper.getText(editor, range.getStartOffset(), range.getEndOffset()));
-    if (whole) {
-      pattern.append("\\>");
-    }
-
-    MotionGroup.moveCaret(editor, caret, range.getStartOffset());
-
-    lastSearch = pattern.toString();
-    lastIgnoreSmartCase = true;
-    setLastPattern(editor, lastSearch);
-    lastOffset = "";
-    lastDir = dir;
-
-    resetShowSearchHighlight();
-    forceUpdateSearchHighlights();
-
-    return findItOffset(editor, caret.getOffset(), count, lastDir);
-  }
-
-  public int searchNext(@NotNull Editor editor, @NotNull Caret caret, int count) {
-    return searchNextWithDirection(editor, caret, count, lastDir);
-  }
-
-  public int searchPrevious(@NotNull Editor editor, @NotNull Caret caret, int count) {
-    return searchNextWithDirection(editor, caret, count, -lastDir);
-  }
-
-  public int searchNextFromOffset(@NotNull Editor editor, int offset, int count) {
-    resetShowSearchHighlight();
-    updateSearchHighlights();
-    return findItOffset(editor, offset, count, 1);
-  }
-
-  private int searchNextWithDirection(@NotNull Editor editor, @NotNull Caret caret, int count, int dir) {
-    resetShowSearchHighlight();
-    updateSearchHighlights();
-    return findItOffset(editor, caret.getOffset(), count, dir);
-  }
-
-  private void resetShowSearchHighlight() {
-    showSearchHighlight = OptionsManager.INSTANCE.getHlsearch().isSet();
-  }
-
-  public void clearSearchHighlight() {
-    showSearchHighlight = false;
-    updateSearchHighlights();
-  }
-
-  private void forceUpdateSearchHighlights() {
-    updateSearchHighlights(lastSearch, lastIgnoreSmartCase, showSearchHighlight, true);
-  }
-
-  private void updateSearchHighlights() {
-    updateSearchHighlights(lastSearch, lastIgnoreSmartCase, showSearchHighlight, false);
-  }
-
-  public void resetIncsearchHighlights() {
-    updateSearchHighlights(lastSearch, lastIgnoreSmartCase, showSearchHighlight, true);
-  }
-
-  public void updateIncsearchHighlights(Editor editor, String pattern, boolean forwards, int caretOffset, @Nullable LineRange searchRange) {
-    // searchStartOffset is used to find the closest match. caretOffset is used to reset the caret if there is no match.
-    // If searching based on e.g. :%s/... then these values are not going to be the same
-    final int searchStartOffset = searchRange != null ? EditorHelper.getLineStartOffset(editor, searchRange.getStartLine()) : caretOffset;
-    final boolean showHighlights = OptionsManager.INSTANCE.getHlsearch().isSet();
-    int currentMatchOffset = updateSearchHighlights(pattern, false, showHighlights, searchStartOffset, searchRange, forwards, false);
-    MotionGroup.moveCaret(editor, editor.getCaretModel().getPrimaryCaret(), currentMatchOffset == -1 ? caretOffset : currentMatchOffset);
-  }
-
-  private void updateSearchHighlights(@Nullable String pattern, boolean shouldIgnoreSmartCase, boolean showHighlights, boolean forceUpdate) {
-    updateSearchHighlights(pattern, shouldIgnoreSmartCase, showHighlights, -1, null, true, forceUpdate);
-  }
-
-  /**
-   * Refreshes current search highlights for all editors of currently active text editor/document
-   */
-  private int updateSearchHighlights(@Nullable String pattern, boolean shouldIgnoreSmartCase, boolean showHighlights,
-                                     int initialOffset, @Nullable LineRange searchRange, boolean forwards, boolean forceUpdate) {
-    int currentMatchOffset = -1;
-
-    Project[] projects = ProjectManager.getInstance().getOpenProjects();
-    for (Project project : projects) {
-      Editor current = FileEditorManager.getInstance(project).getSelectedTextEditor();
-      Editor[] editors = current == null ? null : EditorFactory.getInstance().getEditors(current.getDocument(), project);
-      if (editors == null) {
-        continue;
-      }
-
-      for (final Editor editor : editors) {
-        // Force update for the situations where the text is the same, but the ignore case values have changed.
-        // E.g. Use `*` to search for a word (which ignores smartcase), then use `/<Up>` to search for the same pattern,
-        // which will match smartcase. Or changing the smartcase/ignorecase settings
-        if (shouldRemoveSearchHighlight(editor, pattern, showHighlights) || forceUpdate) {
-          removeSearchHighlight(editor);
-        }
-
-        if (shouldAddSearchHighlight(editor, pattern, showHighlights)) {
-          final int startLine = searchRange == null ? 0 : searchRange.getStartLine();
-          final int endLine = searchRange == null ? -1 : searchRange.getEndLine();
-          List<TextRange> results = findAll(editor, pattern, startLine, endLine, shouldIgnoreCase(pattern, shouldIgnoreSmartCase));
-          if (!results.isEmpty()) {
-            currentMatchOffset = findClosestMatch(editor, results, initialOffset, forwards);
-            highlightSearchResults(editor, pattern, results, currentMatchOffset);
-          }
-          UserDataManager.setVimLastSearch(editor, pattern);
-        }
-        else if (!showHighlights && initialOffset != -1) {
-          // Incremental search always highlights current match. We know it's incsearch if we have a valid initial offset
-          final boolean wrap = OptionsManager.INSTANCE.getWrapscan().isSet();
-          final TextRange result = findIt(editor, pattern, initialOffset, 1,
-            forwards ? DIR_FORWARDS : DIR_BACKWARDS, shouldIgnoreSmartCase, wrap, false, true);
-          if (result != null) {
-            currentMatchOffset = result.getStartOffset();
-            final List<TextRange> results = Collections.singletonList(result);
-            highlightSearchResults(editor, pattern, results, currentMatchOffset);
-          }
-        }
-      }
-    }
-
-    return currentMatchOffset;
-  }
-
-  /**
-   * Remove current search highlights if hlSearch is false, or if the pattern is changed
-   */
-  private boolean shouldRemoveSearchHighlight(@NotNull Editor editor, String newPattern, boolean hlSearch) {
-    return !hlSearch || (newPattern != null && !newPattern.equals(UserDataManager.getVimLastSearch(editor)));
-  }
-
-  /**
-   * Add search highlights if hlSearch is true and the pattern is changed
-   */
-  private boolean shouldAddSearchHighlight(@NotNull Editor editor, @Nullable String newPattern, boolean hlSearch) {
-    return hlSearch && newPattern != null && !newPattern.equals(UserDataManager.getVimLastSearch(editor)) && !Objects.equals(newPattern, "");
-  }
-
-  private void highlightSearchLines(@NotNull Editor editor, int startLine, int endLine) {
-    if (lastSearch != null) {
-      final List<TextRange> results = findAll(editor, lastSearch, startLine, endLine, shouldIgnoreCase(lastSearch, lastIgnoreSmartCase));
-      highlightSearchResults(editor, lastSearch, results, -1);
-    }
-  }
-
-  private int findClosestMatch(@NotNull Editor editor, List<TextRange> results, int initialOffset, boolean forwards) {
-    if (results.isEmpty() || initialOffset == -1) {
-      return -1;
-    }
-
-    final int size = EditorHelper.getFileSize(editor);
-    final TextRange max = Collections.max(results, (r1, r2) -> {
-      final int d1 = distance(r1, initialOffset, forwards, size);
-      final int d2 = distance(r2, initialOffset, forwards, size);
-      if (d1 < 0 && d2 >= 0) {
-        return Integer.MAX_VALUE;
-      }
-      return d2 - d1;
-    });
-
-    if (!OptionsManager.INSTANCE.getWrapscan().isSet()) {
-      final int start = max.getStartOffset();
-      if (forwards && start < initialOffset) {
-        return -1;
-      }
-      else if (start >= initialOffset) {
-        return -1;
-      }
-    }
-
-    return max.getStartOffset();
-  }
-
-  @Nullable
-  public TextRange getNextSearchRange(@NotNull Editor editor, int count, boolean forwards) {
-    editor.getCaretModel().removeSecondaryCarets();
-    TextRange current = findUnderCaret(editor);
-
-    if (current == null || CommandStateHelper.inVisualMode(editor) && atEdgeOfGnRange(current, editor, forwards)) {
-      current = findNextSearchForGn(editor, count, forwards);
-    }
-    else if (count > 1) {
-      current = findNextSearchForGn(editor, count - 1, forwards);
-    }
-    return current;
-  }
-
-  private boolean atEdgeOfGnRange(@NotNull TextRange nextRange, @NotNull Editor editor, boolean forwards) {
-    int currentPosition = editor.getCaretModel().getOffset();
-    if (forwards) {
-      return nextRange.getEndOffset() - VimPlugin.getVisualMotion().getSelectionAdj() == currentPosition;
-    }
-    else {
-      return nextRange.getStartOffset() == currentPosition;
-    }
-  }
-
-  @Nullable
-  private TextRange findNextSearchForGn(@NotNull Editor editor, int count, boolean forwards) {
-    if (forwards) {
-      return findIt(editor, lastSearch, editor.getCaretModel().getOffset(), count, DIR_FORWARDS, false, true, false, true);
-    } else {
-      return searchBackward(editor, editor.getCaretModel().getOffset(), count);
-    }
-  }
-
-  @Nullable
-  private TextRange findUnderCaret(@NotNull Editor editor) {
-    final TextRange backSearch = searchBackward(editor, editor.getCaretModel().getOffset() + 1, 1);
-    if (backSearch == null) return null;
-    return backSearch.contains(editor.getCaretModel().getOffset()) ? backSearch : null;
-  }
-
-  @Nullable
-  private TextRange searchBackward(@NotNull Editor editor, int offset, int count) {
-    // Backward search returns wrongs end offset for some cases. That's why we should perform additional forward search
-    final TextRange foundBackward = findIt(editor, lastSearch, offset, count, DIR_BACKWARDS, false, true, false, true);
-    if (foundBackward == null) return null;
-    int startOffset = foundBackward.getStartOffset() - 1;
-    if (startOffset < 0) startOffset = EditorHelper.getFileSize(editor);
-    return findIt(editor, lastSearch, startOffset, 1, DIR_FORWARDS, false, true, false, true);
-  }
-
-  private static int distance(@NotNull TextRange range, int pos, boolean forwards, int size) {
-    final int start = range.getStartOffset();
-    if (start <= pos) {
-      return forwards ? size - pos + start : pos - start;
-    }
-    else {
-      return forwards ? start - pos : pos + size - start;
-    }
-  }
-
-  @NotNull
-  private static List<TextRange> findAll(@NotNull Editor editor,
-                                         @NotNull String pattern,
-                                         int startLine,
-                                         int endLine,
-                                         boolean ignoreCase) {
-    final List<TextRange> results = Lists.newArrayList();
-    final int lineCount = EditorHelper.getLineCount(editor);
-    final int actualEndLine = endLine == -1 ? lineCount : endLine;
-
-    final RegExp.regmmatch_T regMatch = new RegExp.regmmatch_T();
-    final RegExp regExp = new RegExp();
-    regMatch.regprog = regExp.vim_regcomp(pattern, 1);
-    if (regMatch.regprog == null) {
-      return results;
-    }
-
-    regMatch.rmm_ic = ignoreCase;
-
-    int col = 0;
-    for (int line = startLine; line <= actualEndLine; ) {
-      int matchedLines = regExp.vim_regexec_multi(regMatch, editor, lineCount, line, col);
-      if (matchedLines > 0) {
-        final CharacterPosition startPos = new CharacterPosition(line + regMatch.startpos[0].lnum,
-                                                                 regMatch.startpos[0].col);
-        final CharacterPosition endPos = new CharacterPosition(line + regMatch.endpos[0].lnum,
-                                                               regMatch.endpos[0].col);
-        int start = EditorHelper.characterPositionToOffset(editor, startPos);
-        int end = EditorHelper.characterPositionToOffset(editor, endPos);
-        results.add(new TextRange(start, end));
-
-        if (start != end) {
-          line += matchedLines - 1;
-          col = endPos.column;
-        }
-        else {
-          line += matchedLines;
-          col = 0;
-        }
-      }
-      else {
-        line++;
-        col = 0;
-      }
-    }
-
-    return results;
-  }
-
-  private static void highlightSearchResults(@NotNull Editor editor, @NotNull String pattern, List<TextRange> results,
-                                             int currentMatchOffset) {
-    Collection<RangeHighlighter> highlighters = UserDataManager.getVimLastHighlighters(editor);
-    if (highlighters == null) {
-      highlighters = new ArrayList<>();
-      UserDataManager.setVimLastHighlighters(editor, highlighters);
-    }
-
-    for (TextRange range : results) {
-      final boolean current = range.getStartOffset() == currentMatchOffset;
-      final RangeHighlighter highlighter = highlightMatch(editor, range.getStartOffset(), range.getEndOffset(), current, pattern);
-      highlighters.add(highlighter);
-    }
-  }
-
-  private int findItOffset(@NotNull Editor editor, int startOffset, int count, int dir) {
-    boolean wrap = OptionsManager.INSTANCE.getWrapscan().isSet();
-    TextRange range = findIt(editor, lastSearch, startOffset, count, dir, lastIgnoreSmartCase, wrap, true, true);
-    if (range == null) {
-      return -1;
-    }
-
-    ParsePosition pp = new ParsePosition(0);
-    int res = range.getStartOffset();
-
-    if (lastOffset == null) {
-      return -1;
-    }
-
-    if (lastOffset.length() == 0) {
-      return range.getStartOffset();
-    }
-    else if (Character.isDigit(lastOffset.charAt(0)) || lastOffset.charAt(0) == '+' || lastOffset.charAt(0) == '-') {
-      int lineOffset = 0;
-      if (lastOffset.equals("+")) {
-        lineOffset = 1;
-      }
-      else if (lastOffset.equals("-")) {
-        lineOffset = -1;
-      }
-      else {
-        if (lastOffset.charAt(0) == '+') {
-          lastOffset = lastOffset.substring(1);
-        }
-        NumberFormat nf = NumberFormat.getIntegerInstance();
-        pp = new ParsePosition(0);
-        Number num = nf.parse(lastOffset, pp);
-        if (num != null) {
-          lineOffset = num.intValue();
-        }
-      }
-
-      int line = editor.offsetToLogicalPosition(range.getStartOffset()).line;
-      int newLine = EditorHelper.normalizeLine(editor, line + lineOffset);
-
-      res = VimPlugin.getMotion().moveCaretToLineStart(editor, newLine);
-    }
-    else if ("ebs".indexOf(lastOffset.charAt(0)) != -1) {
-      int charOffset = 0;
-      if (lastOffset.length() >= 2) {
-        if ("+-".indexOf(lastOffset.charAt(1)) != -1) {
-          charOffset = 1;
-        }
-        NumberFormat nf = NumberFormat.getIntegerInstance();
-        pp = new ParsePosition(lastOffset.charAt(1) == '+' ? 2 : 1);
-        Number num = nf.parse(lastOffset, pp);
-        if (num != null) {
-          charOffset = num.intValue();
-        }
-      }
-
-      int base = range.getStartOffset();
-      if (lastOffset.charAt(0) == 'e') {
-        base = range.getEndOffset() - 1;
-      }
-
-      res = Math.max(0, Math.min(base + charOffset, EditorHelper.getFileSize(editor) - 1));
-    }
-
-    int ppos = pp.getIndex();
-    if (ppos < lastOffset.length() - 1 && lastOffset.charAt(ppos) == ';') {
-      EnumSet<CommandFlags> flags = EnumSet.noneOf(CommandFlags.class);
-      if (lastOffset.charAt(ppos + 1) == '/') {
-        flags.add(CommandFlags.FLAG_SEARCH_FWD);
-      }
-      else if (lastOffset.charAt(ppos + 1) == '?') {
-        flags.add(CommandFlags.FLAG_SEARCH_REV);
-      }
-      else {
-        return res;
-      }
-
-      if (lastOffset.length() - ppos > 2) {
-        ppos++;
-      }
-
-      res = search(editor, lastOffset.substring(ppos + 1), res, 1, flags);
-
-      return res;
-    }
-    else {
-      return res;
-    }
-  }
-
-  @SuppressWarnings("SameParameterValue")
-  @Nullable
-  private static TextRange findIt(@NotNull Editor editor, @Nullable String pattern, int startOffset, int count, int dir,
-                                 boolean ignoreSmartCase, boolean wrap, boolean showMessages, boolean wholeFile) {
-    if (pattern == null || pattern.length() == 0) {
-      return null;
-    }
-
-    //RE sp;
-    RegExp sp;
-    RegExp.regmmatch_T regmatch = new RegExp.regmmatch_T();
-    regmatch.rmm_ic = shouldIgnoreCase(pattern, ignoreSmartCase);
-    sp = new RegExp();
-    regmatch.regprog = sp.vim_regcomp(pattern, 1);
-    if (regmatch.regprog == null) {
-      if (logger.isDebugEnabled()) logger.debug("bad pattern: " + pattern);
-      return null;
-    }
-
-    /*
-    int extra_col = 1;
-    int startcol = -1;
-    boolean found = false;
-    boolean match_ok = true;
-    LogicalPosition pos = editor.offsetToLogicalPosition(startOffset);
-    LogicalPosition endpos = null;
-    //REMatch match = null;
-    */
-
-    CharacterPosition lpos = EditorHelper.offsetToCharacterPosition(editor, startOffset);
-    RegExp.lpos_T pos = new RegExp.lpos_T();
-    pos.lnum = lpos.line;
-    pos.col = lpos.column;
-
-    int found;
-    int lnum;           /* no init to shut up Apollo cc */
-    //RegExp.regmmatch_T regmatch;
-    CharPointer ptr;
-    int matchcol;
-    int startcol;
-    RegExp.lpos_T endpos = new RegExp.lpos_T();
-    int loop;
-    RegExp.lpos_T start_pos;
-    boolean at_first_line;
-    int extra_col = 1;
-    boolean match_ok;
-    long nmatched;
-    //int         submatch = 0;
-    int first_lnum;
-
-    int lineCount = EditorHelper.getLineCount(editor);
-    int startLine = 0;
-    int endLine = lineCount;
-
-    do  /* loop for count */ {
-      start_pos = new RegExp.lpos_T(pos);       /* remember start pos for detecting no match */
-      found = 0;              /* default: not found */
-      at_first_line = true;   /* default: start in first line */
-      if (pos.lnum == -1)     /* correct lnum for when starting in line 0 */ {
-        pos.lnum = 0;
-        pos.col = 0;
-        at_first_line = false;  /* not in first line now */
-      }
-
-      /*
-      * Start searching in current line, unless searching backwards and
-      * we're in column 0.
-      */
-      if (dir == DIR_BACKWARDS && start_pos.col == 0) {
-        lnum = pos.lnum - 1;
-        at_first_line = false;
-      }
-      else {
-        lnum = pos.lnum;
-      }
-
-      int lcount = EditorHelper.getLineCount(editor);
-      for (loop = 0; loop <= 1; ++loop)   /* loop twice if 'wrapscan' set */ {
-        if (!wholeFile) {
-          startLine = lnum;
-          endLine = lnum + 1;
-        }
-        for (; lnum >= startLine && lnum < endLine; lnum += dir, at_first_line = false) {
-          /*
-          * Look for a match somewhere in the line.
-          */
-          first_lnum = lnum;
-          nmatched = sp.vim_regexec_multi(regmatch, editor, lcount, lnum, 0);
-          if (nmatched > 0) {
-            /* match may actually be in another line when using \zs */
-            lnum += regmatch.startpos[0].lnum;
-            ptr = new CharPointer(EditorHelper.getLineBuffer(editor, lnum));
-            startcol = regmatch.startpos[0].col;
-            endpos = new RegExp.lpos_T(regmatch.endpos[0]);
-
-            /*
-            * Forward search in the first line: match should be after
-            * the start position. If not, continue at the end of the
-            * match (this is vi compatible) or on the next char.
-            */
-            if (dir == DIR_FORWARDS && at_first_line) {
-              match_ok = true;
-              /*
-              * When match lands on a NUL the cursor will be put
-              * one back afterwards, compare with that position,
-              * otherwise "/$" will get stuck on end of line.
-              */
-              while ((startcol - (startcol == ptr.strlen() ? 1 : 0)) < (start_pos.col + extra_col)) {
-                if (nmatched > 1) {
-                  /* end is in next line, thus no match in
-               * this line */
-                  match_ok = false;
-                  break;
-                }
-                matchcol = endpos.col;
-                /* for empty match: advance one char */
-                if (matchcol == startcol && ptr.charAt(matchcol) != '\u0000') {
-                  ++matchcol;
-                }
-                if (ptr.charAt(matchcol) == '\u0000' ||
-                    (nmatched = sp.vim_regexec_multi(regmatch, editor, lcount, lnum, matchcol)) == 0) {
-                  match_ok = false;
-                  break;
-                }
-                startcol = regmatch.startpos[0].col;
-                endpos = new RegExp.lpos_T(regmatch.endpos[0]);
-
-                /* Need to get the line pointer again, a
-        * multi-line search may have made it invalid. */
-                ptr = new CharPointer(EditorHelper.getLineBuffer(editor, lnum));
-              }
-              if (!match_ok) {
-                continue;
-              }
-            }
-            if (dir == DIR_BACKWARDS) {
-              /*
-              * Now, if there are multiple matches on this line,
-              * we have to get the last one. Or the last one before
-              * the cursor, if we're on that line.
-              * When putting the new cursor at the end, compare
-              * relative to the end of the match.
-              */
-              match_ok = false;
-              for (; ; ) {
-                if (!at_first_line || (regmatch.startpos[0].col + extra_col <= start_pos.col)) {
-                  /* Remember this position, we use it if it's
-           * the last match in the line. */
-                  match_ok = true;
-                  startcol = regmatch.startpos[0].col;
-                  endpos = new RegExp.lpos_T(regmatch.endpos[0]);
-                }
-                else {
-                  break;
-                }
-
-                /*
-                * We found a valid match, now check if there is
-                * another one after it.
-                * If vi-compatible searching, continue at the end
-                * of the match, otherwise continue one position
-                * forward.
-                */
-                if (nmatched > 1) {
-                  break;
-                }
-                matchcol = endpos.col;
-                /* for empty match: advance one char */
-                if (matchcol == startcol && ptr.charAt(matchcol) != '\u0000') {
-                  ++matchcol;
-                }
-                if (ptr.charAt(matchcol) == '\u0000' ||
-                    (nmatched = sp.vim_regexec_multi(regmatch, editor, lcount, lnum, matchcol)) == 0) {
-                  break;
-                }
-
-                /* Need to get the line pointer again, a
-        * multi-line search may have made it invalid. */
-                ptr = new CharPointer(EditorHelper.getLineBuffer(editor, lnum));
-              }
-
-              /*
-              * If there is only a match after the cursor, skip
-              * this match.
-              */
-              if (!match_ok) {
-                continue;
-              }
-            }
-
-            pos.lnum = lnum;
-            pos.col = startcol;
-            endpos.lnum += first_lnum;
-            found = 1;
-
-            /* Set variables used for 'incsearch' highlighting. */
-            //search_match_lines = endpos.lnum - (lnum - first_lnum);
-            //search_match_endcol = endpos.col;
-            break;
-          }
-          //line_breakcheck();      /* stop if ctrl-C typed */
-          //if (got_int)
-          //    break;
-
-          if (loop != 0 && lnum == start_pos.lnum) {
-            break;          /* if second loop, stop where started */
-          }
-        }
-        at_first_line = false;
-
-        /*
-        * stop the search if wrapscan isn't set, after an interrupt and
-        * after a match
-        */
-        if (!wrap || found != 0) {
-          break;
-        }
-
-        /*
-        * If 'wrapscan' is set we continue at the other end of the file.
-        * If 'shortmess' does not contain 's', we give a message.
-        * This message is also remembered in keep_msg for when the screen
-        * is redrawn. The keep_msg is cleared whenever another message is
-        * written.
-        */
-        if (dir == DIR_BACKWARDS)    /* start second loop at the other end */ {
-          lnum = lineCount - 1;
-          //if (!shortmess(SHM_SEARCH) && (options & SEARCH_MSG))
-          //    give_warning((char_u *)_(top_bot_msg), TRUE);
-        }
-        else {
-          lnum = 0;
-          //if (!shortmess(SHM_SEARCH) && (options & SEARCH_MSG))
-          //    give_warning((char_u *)_(bot_top_msg), TRUE);
-        }
-      }
-      //if (got_int || called_emsg || break_loop)
-      //    break;
-    }
-    while (--count > 0 && found != 0);   /* stop after count matches or no match */
-
-    if (found == 0)             /* did not find it */ {
-      //if ((options & SEARCH_MSG) == SEARCH_MSG)
-      if (showMessages) {
-        if (wrap) {
-          VimPlugin.showMessage(MessageHelper.message(Msg.e_patnotf2, pattern));
-        }
-        else if (lnum <= 0) {
-          VimPlugin.showMessage(MessageHelper.message(Msg.E384, pattern));
-        }
-        else {
-          VimPlugin.showMessage(MessageHelper.message(Msg.E385, pattern));
-        }
-      }
-      return null;
-    }
-
-    //return new TextRange(editor.logicalPositionToOffset(new LogicalPosition(pos.lnum, pos.col)),
-    //    editor.logicalPositionToOffset(new LogicalPosition(endpos.lnum, endpos.col)));
-    //return new TextRange(editor.logicalPositionToOffset(new LogicalPosition(pos.lnum, 0)) + pos.col,
-    //    editor.logicalPositionToOffset(new LogicalPosition(endpos.lnum, 0)) + endpos.col);
-    return new TextRange(EditorHelper.characterPositionToOffset(editor, new CharacterPosition(pos.lnum, pos.col)),
-                         EditorHelper.characterPositionToOffset(editor, new CharacterPosition(endpos.lnum, endpos.col)));
   }
 
   @NotNull

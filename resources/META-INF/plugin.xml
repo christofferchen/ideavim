@@ -88,6 +88,9 @@
 
   <extensions defaultExtensionNs="com.intellij">
     <applicationConfigurable groupId="editor" instance="com.maddyhome.idea.vim.ui.VimEmulationConfigurable"/>
+
+    <projectService serviceImplementation="com.maddyhome.idea.vim.group.NotificationService"/>
+    <applicationService serviceImplementation="com.maddyhome.idea.vim.group.NotificationService"/>
   </extensions>
 
   <extensions defaultExtensionNs="IdeaVIM">
@@ -447,6 +450,9 @@
     <action id="VimVisualSelectPreviousSearch" class="com.maddyhome.idea.vim.action.motion.gn.VisualSelectPreviousSearch" text="Visual Select Previous Search"/>
     <action id="VimGnNextTextObject" class="com.maddyhome.idea.vim.action.motion.gn.GnNextTextObject" text="Gn Next Text Object"/>
     <action id="VimGnPreviousTextObject" class="com.maddyhome.idea.vim.action.motion.gn.GnPreviousTextObject" text="Gn Previous Text Object"/>
+
+    <action id="VimCtrlDownAction" class="com.maddyhome.idea.vim.action.motion.scroll.CtrlDownAction" text="Ctrl down"/>
+    <action id="VimCtrlUpAction" class="com.maddyhome.idea.vim.action.motion.scroll.CtrlUpAction" text="Ctrl up"/>
 
     <!--CamelCaseMotion-->
     <action id="VimMotionInnerCamelCaseWord" class="com.maddyhome.idea.vim.extension.camelcasemotion.MotionInnerCamelCaseWordAction" text="Select Inner Camel Case Word"/>

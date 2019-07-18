@@ -97,14 +97,17 @@ To Be Released
 * Incremental search highlights all matches in file, not just first
 * Added incremental search highlights for `:substitute` command
 * Fix exception when trying to highlight last CR in file
-* Improve behaviour of `<BS>` in command line entry
-* [VIM-1626](https://youtrack.jetbrains.com/issue/VIM-1626) Add `smartjoin` option
-* [VIM-959](https://youtrack.jetbrains.com/issue/VIM-1626) Add `idemarks` option
+* Improve behavior of `<BS>` in command line entry
+* [VIM-1626](https://youtrack.jetbrains.com/issue/VIM-1626) Add `ideajoin` option
+* [VIM-959](https://youtrack.jetbrains.com/issue/VIM-959) Add `ideamarks` option
 * [VIM-608](https://youtrack.jetbrains.com/issue/VIM-608) Automatic upload files on explicit save
 * [VIM-1548](https://youtrack.jetbrains.com/issue/VIM-1548) Respect editor settings about tabs and spaces
 * [VIM-1682](https://youtrack.jetbrains.com/issue/VIM-1682) Fix backward search with OR
 * [VIM-752](https://youtrack.jetbrains.com/issue/VIM-752) Enter finishes template in normal mode
 * [VIM-1668](https://youtrack.jetbrains.com/issue/VIM-1668) Fix smart step into
+* [VIM-1697](https://youtrack.jetbrains.com/issue/VIM-1697) Fix wrong search with tab characters
+* [VIM-1700](https://youtrack.jetbrains.com/issue/VIM-1700) Fix wrong search with tab characters
+* [VIM-1698](https://youtrack.jetbrains.com/issue/VIM-1698) Paste doesn't clear clipboard
 
 0.51, 2019-02-12
 ----------------
@@ -548,7 +551,7 @@ Bug fixes:
 * VIM-312 Fixed range and caret position after `dw` on the last single-word
   line, `w` command argument for the last word in file
 * Fixed `w` motion at the last word
-* VIM-85 Bug fix for gi behaviour
+* VIM-85 Bug fix for gi behavior
 * Always move cursor at the beginning of the deleted range
 * VIM-275 Fixed edge cases for `i{` motion
 * VIM-314 Made `i{` motion characterwise, not linewise/characterwise in visual

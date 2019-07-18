@@ -19,15 +19,12 @@
 package com.maddyhome.idea.vim.group;
 
 import com.intellij.find.EditorSearchSession;
-import com.intellij.notification.Notification;
-import com.intellij.notification.NotificationType;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.*;
 import com.intellij.openapi.editor.colors.ColorKey;
 import com.intellij.openapi.editor.colors.EditorColors;
 import com.intellij.openapi.editor.colors.EditorFontType;
-import com.intellij.openapi.editor.event.CaretAdapter;
 import com.intellij.openapi.editor.event.CaretEvent;
 import com.intellij.openapi.editor.event.CaretListener;
 import com.intellij.openapi.editor.event.EditorFactoryEvent;
@@ -39,6 +36,7 @@ import com.maddyhome.idea.vim.helper.*;
 import com.maddyhome.idea.vim.option.OptionChangeEvent;
 import com.maddyhome.idea.vim.option.OptionChangeListener;
 import com.maddyhome.idea.vim.option.OptionsManager;
+import kotlin.text.StringsKt;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -59,9 +57,9 @@ public class EditorGroup {
   private boolean isRefrainFromScrolling = false;
   private Boolean isKeyRepeat = null;
 
-  private boolean isSmartJoinNotified = false;
+  private boolean isIdeaJoinNotified = false;
 
-  private final CaretListener myLineNumbersCaretListener = new CaretAdapter() {
+  private final CaretListener myLineNumbersCaretListener = new CaretListener() {
     @Override
     public void caretPositionChanged(CaretEvent e) {
       updateLineNumbers(e.getEditor());
@@ -165,9 +163,6 @@ public class EditorGroup {
     final Element editor = new Element("editor");
     element.addContent(editor);
 
-    final Element smartJoin = new Element("smart-join");
-    smartJoin.setAttribute("enabled", Boolean.toString(isSmartJoinNotified));
-    editor.addContent(smartJoin);
     if (isKeyRepeat != null) {
       final Element keyRepeat = new Element("key-repeat");
       keyRepeat.setAttribute("enabled", Boolean.toString(isKeyRepeat));
@@ -185,13 +180,6 @@ public class EditorGroup {
           isKeyRepeat = Boolean.valueOf(enabled);
         }
       }
-      final Element smartJoin = editor.getChild("smart-join");
-      if (smartJoin != null) {
-        final String enabled = smartJoin.getAttributeValue("enabled");
-        if (enabled != null) {
-          isSmartJoinNotified = Boolean.parseBoolean(enabled);
-        }
-      }
     }
   }
 
@@ -202,16 +190,6 @@ public class EditorGroup {
 
   public void setKeyRepeat(@Nullable Boolean value) {
     this.isKeyRepeat = value;
-  }
-
-  public void notifyAboutSmartJoin() {
-    if (isSmartJoinNotified || OptionsManager.INSTANCE.getSmartjoin().isSet()) return;
-
-    isSmartJoinNotified = true;
-
-    new Notification(VimPlugin.IDEAVIM_STICKY_NOTIFICATION_ID, VimPlugin.IDEAVIM_NOTIFICATION_TITLE,
-                     "Put \"<code>set smartjoin</code>\" into your <code>.ideavimrc</code> to perform a join via the IDE",
-                     NotificationType.INFORMATION).notify(null);
   }
 
   public void closeEditorSearchSession(@NotNull Editor editor) {
@@ -264,12 +242,17 @@ public class EditorGroup {
     }
   }
 
+  public void notifyIdeaJoin(@Nullable Project project) {
+    if (VimPlugin.getVimState().isIdeaJoinNotified() || OptionsManager.INSTANCE.getIdeajoin().isSet()) return;
+
+    VimPlugin.getVimState().setIdeaJoinNotified(true);
+
+    VimPlugin.getNotifications(project).notifyAboutIdeaJoin();
+  }
+
   private static class LineNumbersGutterProvider implements TextAnnotationGutterProvider {
 
     public static LineNumbersGutterProvider INSTANCE = new LineNumbersGutterProvider();
-
-    private LineNumbersGutterProvider() {
-    }
 
     @Nullable
     @Override
@@ -305,7 +288,7 @@ public class EditorGroup {
     private String lineNumberToString(int lineNumber, @NotNull Editor editor) {
       final int lineCount = editor.getDocument().getLineCount();
       final int digitsCount = (int)Math.ceil(Math.log10(lineCount));
-      return StringHelper.leftJustify("" + lineNumber, digitsCount, ' ');
+      return StringsKt.padEnd("" + lineNumber, digitsCount, ' ');
     }
 
     @Nullable

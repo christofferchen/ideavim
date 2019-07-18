@@ -58,7 +58,7 @@ public class ExTextField extends JTextField {
       @Override
       public void mouseClicked(MouseEvent e) {
         // If we're in the middle of an action (e.g. entering a register to paste, or inserting a digraph), cancel it if
-        // the mouse is clicked anywhere. Vim's behaviour is to use the mouse click as an event, which can lead to
+        // the mouse is clicked anywhere. Vim's behavior is to use the mouse click as an event, which can lead to
         // something like : !%!C, which I don't believe is documented, or useful
         if (currentAction != null) {
           clearCurrentAction();
@@ -207,6 +207,7 @@ public class ExTextField extends JTextField {
     return super.getText();
   }
 
+  @Nullable
   String getActualText() {
     if (actualText != null) {
       return actualText;
@@ -214,7 +215,7 @@ public class ExTextField extends JTextField {
     return super.getText();
   }
 
-  void setEditor(Editor editor, DataContext context) {
+  void setEditor(@NotNull Editor editor, DataContext context) {
     this.editor = editor;
     this.context = context;
     String disposeKey = vimExTextFieldDisposeKey + editor.hashCode();
@@ -304,7 +305,7 @@ public class ExTextField extends JTextField {
    */
   void cancel() {
     clearCurrentAction();
-    VimPlugin.getProcess().cancelExEntry(editor, context);
+    VimPlugin.getProcess().cancelExEntry(editor, true);
   }
 
   void setCurrentAction(@NotNull ExEditorKit.MultiStepAction action, char pendingIndicator) {

@@ -18,8 +18,8 @@
 
 package com.maddyhome.idea.vim.action.motion.select.motion
 
-import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.openapi.actionSystem.DataContext
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Caret
 import com.intellij.openapi.editor.Editor
 import com.maddyhome.idea.vim.VimPlugin
@@ -27,6 +27,7 @@ import com.maddyhome.idea.vim.action.MotionEditorAction
 import com.maddyhome.idea.vim.command.Argument
 import com.maddyhome.idea.vim.command.MappingMode
 import com.maddyhome.idea.vim.handler.MotionActionHandler
+import com.maddyhome.idea.vim.helper.isTemplateActive
 import com.maddyhome.idea.vim.option.KeyModelOptionData
 import com.maddyhome.idea.vim.option.OptionsManager
 import javax.swing.KeyStroke
@@ -40,9 +41,18 @@ class SelectMotionLeftAction : MotionEditorAction() {
     override fun getOffset(editor: Editor, caret: Caret, context: DataContext, count: Int, rawCount: Int, argument: Argument?): Int {
       val keymodel = OptionsManager.keymodel
       if (KeyModelOptionData.stopsel in keymodel || KeyModelOptionData.stopselect in keymodel) {
+        logger.info("Keymodel option has stopselect. Exiting select mode")
+        val startSelection = caret.selectionStart
+        val endSelection = caret.selectionEnd
         VimPlugin.getVisualMotion().exitSelectMode(editor, false)
-        TemplateManager.getInstance(editor.project)
-          .getActiveTemplate(editor)?.run { VimPlugin.getChange().insertBeforeCursor(editor, context) }
+        if (editor.isTemplateActive()) {
+          logger.info("Template is active. Activate insert mode")
+          VimPlugin.getChange().insertBeforeCursor(editor, context)
+          if (caret.offset in startSelection..endSelection) {
+            return startSelection
+          }
+        }
+        // No return statement, perform motion to left
       }
       return VimPlugin.getMotion().moveCaretHorizontal(editor, caret, -count, false)
     }
@@ -51,4 +61,8 @@ class SelectMotionLeftAction : MotionEditorAction() {
   override val mappingModes: MutableSet<MappingMode> = MappingMode.S
 
   override val keyStrokesSet: Set<List<KeyStroke>> = parseKeysSet("<Left>")
+
+  companion object {
+    private val logger = Logger.getInstance(SelectMotionLeftAction::class.java)
+  }
 }

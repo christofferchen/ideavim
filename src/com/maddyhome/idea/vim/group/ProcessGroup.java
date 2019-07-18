@@ -62,7 +62,7 @@ public class ProcessGroup {
     panel.activate(editor, context, label, initText, count);
   }
 
-  public String endSearchCommand(@NotNull final Editor editor, @NotNull DataContext context) {
+  public String endSearchCommand(@NotNull final Editor editor) {
     ExEntryPanel panel = ExEntryPanel.getInstance();
     panel.deactivate(true);
 
@@ -114,9 +114,6 @@ public class ProcessGroup {
       if (panel.getLabel().equals(":")) {
         flags = CommandParser.getInstance().processCommand(editor, context, text, 1);
         if (logger.isDebugEnabled()) logger.debug("flags=" + flags);
-        if (CommandState.getInstance(editor).getMode() == CommandState.Mode.VISUAL) {
-          VimPlugin.getVisualMotion().exitVisual(editor);
-        }
       }
       else {
         int pos = VimPlugin.getSearch().search(editor, text, panel.getCount(),
@@ -142,11 +139,11 @@ public class ProcessGroup {
     return res;
   }
 
-  public void cancelExEntry(@NotNull final Editor editor, @NotNull final DataContext context) {
+  public void cancelExEntry(@NotNull final Editor editor, boolean scrollToOldPosition) {
     CommandState.getInstance(editor).popState();
     KeyHandler.getInstance().reset(editor);
     ExEntryPanel panel = ExEntryPanel.getInstance();
-    panel.deactivate(true);
+    panel.deactivate(true, scrollToOldPosition);
   }
 
   private void record(Editor editor, @NotNull String text) {

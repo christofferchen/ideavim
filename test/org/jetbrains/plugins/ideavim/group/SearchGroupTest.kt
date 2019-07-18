@@ -26,6 +26,7 @@ import com.maddyhome.idea.vim.VimPlugin
 import com.maddyhome.idea.vim.command.CommandFlags
 import com.maddyhome.idea.vim.helper.RunnableHelper
 import com.maddyhome.idea.vim.helper.StringHelper.parseKeys
+import com.maddyhome.idea.vim.helper.VimTestFunction
 import com.maddyhome.idea.vim.option.OptionsManager
 import org.jetbrains.plugins.ideavim.VimTestCase
 import java.util.*
@@ -226,18 +227,21 @@ class SearchGroupTest : VimTestCase() {
     assertOffset(6)
   }
 
+  @VimTestFunction("com.maddyhome.idea.vim.action.motion.search.SearchWholeWordForwardAction")
   fun `test search word matches case`() {
     typeTextInFile(parseKeys("*"),
       "${c}Editor editor Editor")
     assertOffset(14)
   }
 
+  @VimTestFunction("com.maddyhome.idea.vim.action.motion.search.SearchWholeWordForwardAction")
   fun `test search next word matches case`() {
     typeTextInFile(parseKeys("*", "n"),
       "${c}Editor editor Editor editor Editor")
     assertOffset(28)
   }
 
+  @VimTestFunction("com.maddyhome.idea.vim.action.motion.search.SearchWholeWordForwardAction")
   fun `test search word honours ignorecase`() {
     setIgnoreCase()
     typeTextInFile(parseKeys("*"),
@@ -245,6 +249,7 @@ class SearchGroupTest : VimTestCase() {
     assertOffset(7)
   }
 
+  @VimTestFunction("com.maddyhome.idea.vim.action.motion.search.SearchWholeWordForwardAction")
   fun `test search next word honours ignorecase`() {
     setIgnoreCase()
     typeTextInFile(parseKeys("*", "n"),
@@ -252,6 +257,7 @@ class SearchGroupTest : VimTestCase() {
     assertOffset(14)
   }
 
+  @VimTestFunction("com.maddyhome.idea.vim.action.motion.search.SearchWholeWordForwardAction")
   fun `test search word overrides smartcase`() {
     setIgnoreCaseAndSmartCase()
     typeTextInFile(parseKeys("*"),
@@ -259,6 +265,7 @@ class SearchGroupTest : VimTestCase() {
     assertOffset(7)
   }
 
+  @VimTestFunction("com.maddyhome.idea.vim.action.motion.search.SearchWholeWordForwardAction")
   fun `test search next word overrides smartcase`() {
     setIgnoreCaseAndSmartCase()
     typeTextInFile(parseKeys("*", "n"),
@@ -273,7 +280,7 @@ class SearchGroupTest : VimTestCase() {
          |${c}all rocks and lavender and tufted grass,
          |where it was settled on some sodden sand
          |hard by the torrent of a mountain pass.""".trimMargin())
-    typeText(parseKeys("/", "la"))
+    typeText(parseKeys("/", "la<CR>"))
     assertPosition(1, 14)
   }
 
@@ -284,7 +291,7 @@ class SearchGroupTest : VimTestCase() {
            |${c}all rocks and lavender and tufted grass,
            |where it was settled on some sodden sand
            |hard by the torrent of a mountain pass.""".trimMargin())
-    typeText(parseKeys("?", "la"))
+    typeText(parseKeys("?", "la<CR>"))
     assertPosition(0, 26)
   }
 
@@ -307,7 +314,6 @@ class SearchGroupTest : VimTestCase() {
            |where it was settled on some sodden sand
            |hard by the torrent of a mountain pass.""".trimMargin())
     typeText(parseKeys("/", "la"))
-    assertOffset(45)
     typeText(parseKeys("<Esc>"))
     assertOffset(31)
   }
@@ -971,6 +977,14 @@ class SearchGroupTest : VimTestCase() {
             |all rocks and lavender and tufted grass,
             |where it was «shuffled» on some sodden «sand»
             |hard by the torrent of a mountain pass.""".trimMargin())
+  }
+
+  fun `test search highlight with tabs`() {
+    setHighlightSearch()
+    configureByText("\tfoo")
+    val pattern = "foo"
+    enterSearch(pattern)
+    assertSearchHighlights(pattern, "\t«foo»")
   }
 
   // Ensure that the offsets for the last carriage return in the file are valid, even though it's for a line that
