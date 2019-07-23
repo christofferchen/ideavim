@@ -73,7 +73,7 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
 
     @NotNull
     @Override
-    protected VimActionHandler makeActionHandler() {
+    protected TextObjectActionHandler makeActionHandler() {
       return new Handler(true);
     }
   }
@@ -85,7 +85,7 @@ public class VimArgTextObjExtension extends VimNonDisposableExtension {
 
     @NotNull
     @Override
-    protected VimActionHandler makeActionHandler() {
+    protected TextObjectActionHandler makeActionHandler() {
       return new Handler(false);
     }
   }

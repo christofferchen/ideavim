@@ -1,5 +1,6 @@
 package com.maddyhome.idea.vim.extension.argtextobj;
 
+import com.maddyhome.idea.vim.action.TextObjectAction;
 import com.maddyhome.idea.vim.action.VimCommandAction;
 import com.maddyhome.idea.vim.command.Command;
 import com.maddyhome.idea.vim.command.CommandFlags;
@@ -18,7 +19,7 @@ import java.util.Set;
  * @version 1.0
  * @date 2019/6/24 17:21
  */
-public abstract class VimArgumentCommandAction extends VimCommandAction {
+public abstract class VimArgumentCommandAction extends TextObjectAction {
   @NotNull
   protected final Set<List<KeyStroke>> keySet;
 
@@ -35,12 +36,6 @@ public abstract class VimArgumentCommandAction extends VimCommandAction {
   @Override
   public Set<List<KeyStroke>> getKeyStrokesSet() {
     return keySet;
-  }
-
-  @NotNull
-  @Override
-  public Command.Type getType() {
-    return Command.Type.MOTION;
   }
 
   @Override
