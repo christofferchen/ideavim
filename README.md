@@ -57,7 +57,7 @@ Get Early Access
 -------------------
 
 Would you like to try new features and fixes? Join the Early Access Program and
-receive EAP builds as updates!  
+receive EAP builds as updates!
 
 1. Open `Settings | Plugins`
 2. Click the gear icon :gear:, select `Manage Plugin Repositories`, and add the following url:
@@ -95,12 +95,13 @@ Supported:
 * Command line and search history
 * Window commands
 * Vim web help
-* Select mode [To Be Released]
+* Select mode
 
 Emulated Vim plugins:
 
 * vim-surround
 * vim-multiple-cursors
+* vim-commentary
 * argtextobj.vim
 
 Not supported (yet):
@@ -150,7 +151,7 @@ Available extensions:
 * multiple-cursors
     * Emulates [vim-multiple-cursors](https://github.com/terryma/vim-multiple-cursors)
     * Commands: `<A-n>`, `<A-x>`, `<A-p>`, `g<A-n>`
-* commentary [To Be Released]
+* commentary
     * Emulates [commentary.vim](https://github.com/tpope/vim-commentary)
     * Commands: `gcc`, `gc + motion`, `v_gc`
 * argtextobj
@@ -185,7 +186,7 @@ IdeaVim adds two commands for listing and executing arbitrary IDE actions as
 Ex commands or via `:map` command mappings:
 
 * `:actionlist [pattern]`
-    * Find IDE actions by name pattern
+    * Find IDE actions by name or keymap pattern (E.g. `:actionlist extract`, `:actionlist <C-D`)
 * `:action {name}`
     * Execute an action named `NAME`
 

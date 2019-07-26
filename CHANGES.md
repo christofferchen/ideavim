@@ -18,6 +18,13 @@ usual beta standards.
 
 To Be Released
 --------------
+* [VIM-1711](https://youtrack.jetbrains.com/issue/VIM-1711) Search is not triggered during surround action
+* [VIM-1712](https://youtrack.jetbrains.com/issue/VIM-1712) Fix `Y` command for visual mode
+* [VIM-1710](https://youtrack.jetbrains.com/issue/VIM-1710) Fix opening empty file with "relative number" enabled
+
+
+0.52, 2019-07-23
+--------------
 
 * Introduce [Select Mode](https://vimhelp.org/visual.txt.html#Select-mode).
 
