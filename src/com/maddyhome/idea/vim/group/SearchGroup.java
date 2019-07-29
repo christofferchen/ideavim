@@ -47,6 +47,7 @@ import com.maddyhome.idea.vim.regexp.RegExp;
 import com.maddyhome.idea.vim.ui.ExEntryPanel;
 import com.maddyhome.idea.vim.ui.ModalEntry;
 import org.jdom.Element;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -164,7 +165,7 @@ public class SearchGroup {
   private static ReplaceConfirmationChoice confirmChoice(@NotNull Editor editor, @NotNull String match) {
     final Ref<ReplaceConfirmationChoice> result = Ref.create(ReplaceConfirmationChoice.QUIT);
     // XXX: The Ex entry panel is used only for UI here, its logic might be inappropriate for this method
-    final ExEntryPanel exEntryPanel = ExEntryPanel.getInstance();
+    final ExEntryPanel exEntryPanel = ExEntryPanel.getInstanceWithoutShortcuts();
     exEntryPanel.activate(editor, new EditorDataContext(editor), "Replace with " + match + " (y/n/a/q/l)?", "", 1);
     ModalEntry.activate(key -> {
       final ReplaceConfirmationChoice choice;
@@ -217,7 +218,7 @@ public class SearchGroup {
     return res;
   }
 
-  public int search(@NotNull Editor editor, @NotNull String command, int startOffset, int count, EnumSet<CommandFlags> flags) {
+  public int search(@NotNull Editor editor, @NotNull String command, int startOffset, int count, @NotNull EnumSet<CommandFlags> flags) {
     int dir = DIR_FORWARDS;
     char type = '/';
     String pattern = lastSearch;
@@ -348,7 +349,7 @@ public class SearchGroup {
     updateSearchHighlights(lastSearch, lastIgnoreSmartCase, showSearchHighlight, true);
   }
 
-  public void updateIncsearchHighlights(Editor editor, String pattern, boolean forwards, int caretOffset, @Nullable LineRange searchRange) {
+  public void updateIncsearchHighlights(@NotNull Editor editor, @NotNull String pattern, boolean forwards, int caretOffset, @Nullable LineRange searchRange) {
     // searchStartOffset is used to find the closest match. caretOffset is used to reset the caret if there is no match.
     // If searching based on e.g. :%s/... then these values are not going to be the same
     final int searchStartOffset = searchRange != null ? EditorHelper.getLineStartOffset(editor, searchRange.getStartLine()) : caretOffset;
@@ -400,7 +401,7 @@ public class SearchGroup {
           final boolean wrap = OptionsManager.INSTANCE.getWrapscan().isSet();
           final TextRange result = findIt(editor, pattern, initialOffset, 1,
             forwards ? DIR_FORWARDS : DIR_BACKWARDS, shouldIgnoreSmartCase, wrap, false, true);
-          if (result != null) {
+          if (result != null && pattern != null) {
             currentMatchOffset = result.getStartOffset();
             final List<TextRange> results = Collections.singletonList(result);
             highlightSearchResults(editor, pattern, results, currentMatchOffset);
@@ -415,6 +416,7 @@ public class SearchGroup {
   /**
    * Remove current search highlights if hlSearch is false, or if the pattern is changed
    */
+  @Contract("_, _, false -> true; _, null, true -> false")
   private boolean shouldRemoveSearchHighlight(@NotNull Editor editor, String newPattern, boolean hlSearch) {
     return !hlSearch || (newPattern != null && !newPattern.equals(UserDataManager.getVimLastSearch(editor)));
   }
@@ -422,6 +424,7 @@ public class SearchGroup {
   /**
    * Add search highlights if hlSearch is true and the pattern is changed
    */
+  @Contract("_, _, false -> false; _, null, true -> false")
   private boolean shouldAddSearchHighlight(@NotNull Editor editor, @Nullable String newPattern, boolean hlSearch) {
     return hlSearch && newPattern != null && !newPattern.equals(UserDataManager.getVimLastSearch(editor)) && !Objects.equals(newPattern, "");
   }
@@ -433,7 +436,7 @@ public class SearchGroup {
     }
   }
 
-  private int findClosestMatch(@NotNull Editor editor, List<TextRange> results, int initialOffset, boolean forwards) {
+  private int findClosestMatch(@NotNull Editor editor, @NotNull List<TextRange> results, int initialOffset, boolean forwards) {
     if (results.isEmpty() || initialOffset == -1) {
       return -1;
     }
@@ -1352,6 +1355,7 @@ public class SearchGroup {
 
     public static DocumentSearchListener INSTANCE = new DocumentSearchListener();
 
+    @Contract(pure = true)
     private DocumentSearchListener () {
     }
 
