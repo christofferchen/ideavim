@@ -37,7 +37,6 @@ import com.maddyhome.idea.vim.VimTypedActionHandler
 import com.maddyhome.idea.vim.command.CommandState
 import com.maddyhome.idea.vim.ex.ExOutputModel
 import com.maddyhome.idea.vim.group.*
-import com.maddyhome.idea.vim.group.visual.VisualMotionGroup
 import com.maddyhome.idea.vim.group.visual.moveCaretOneCharLeftFromSelectionEnd
 import com.maddyhome.idea.vim.group.visual.vimSetSystemSelectionSilently
 import com.maddyhome.idea.vim.helper.*
@@ -298,14 +297,14 @@ object VimListenerManager {
     }
 
     override fun mouseReleased(event: EditorMouseEvent) {
-      VisualMotionGroup.modeBeforeEnteringNonVimVisual = null
       if (mouseDragging) {
         logger.debug("Release mouse after dragging")
         val editor = event.editor
         val caret = editor.caretModel.primaryCaret
         SelectionVimListenerSuppressor.use {
+          val predictedMode = VimPlugin.getVisualMotion().predictMode(editor, VimListenerManager.SelectionSource.MOUSE)
           VimPlugin.getVisualMotion().controlNonVimSelectionChange(editor, VimListenerManager.SelectionSource.MOUSE)
-          moveCaretOneCharLeftFromSelectionEnd(editor)
+          moveCaretOneCharLeftFromSelectionEnd(editor, predictedMode)
           caret.vimLastColumn = editor.caretModel.visualPosition.column
         }
 
@@ -355,9 +354,10 @@ object VimListenerManager {
   private object ComponentMouseListener : MouseAdapter() {
     override fun mousePressed(e: MouseEvent?) {
       val editor = (e?.component as? EditorComponentImpl)?.editor ?: return
+      val predictedMode = VimPlugin.getVisualMotion().predictMode(editor, VimListenerManager.SelectionSource.MOUSE)
       when (e.clickCount) {
         1 -> {
-          if (!editor.inInsertMode) {
+          if (!predictedMode.isEndAllowed) {
             editor.caretModel.runForEachCaret { caret ->
               val lineEnd = EditorHelper.getLineEndForOffset(editor, caret.offset)
               val lineStart = EditorHelper.getLineStartForOffset(editor, caret.offset)
@@ -367,7 +367,7 @@ object VimListenerManager {
             }
           }
         }
-        2 -> moveCaretOneCharLeftFromSelectionEnd(editor)
+        2 -> moveCaretOneCharLeftFromSelectionEnd(editor, predictedMode)
       }
     }
   }
