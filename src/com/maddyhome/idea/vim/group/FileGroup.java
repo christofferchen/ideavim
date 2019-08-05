@@ -154,7 +154,7 @@ public class FileGroup {
       final EditorWindow window = fileEditorManager.getCurrentWindow();
       final VirtualFile virtualFile = EditorHelper.getVirtualFile(editor);
 
-      if (virtualFile != null) {
+      if (virtualFile != null && window != null) {
         window.closeFile(virtualFile);
       }
     }
@@ -246,7 +246,9 @@ public class FileGroup {
 
   public void displayAsciiInfo(@NotNull Editor editor) {
     int offset = editor.getCaretModel().getOffset();
-    char ch = editor.getDocument().getCharsSequence().charAt(offset);
+    CharSequence charsSequence = editor.getDocument().getCharsSequence();
+    if (charsSequence.length() == 0 || offset >= charsSequence.length()) return;
+    char ch = charsSequence.charAt(offset);
 
     VimPlugin.showMessage("<" +
                           StringHelper.toKeyNotation(KeyStroke.getKeyStroke(ch)) +

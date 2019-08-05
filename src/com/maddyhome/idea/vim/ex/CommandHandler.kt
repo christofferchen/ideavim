@@ -87,9 +87,7 @@ sealed class CommandHandler {
     ARGUMENT_FORBIDDEN
   }
 
-  enum class Flag {
-    DONT_REOPEN,
-
+  enum class Access {
     /**
      * Indicates that this is a command that modifies the editor
      */
@@ -98,6 +96,13 @@ sealed class CommandHandler {
      * Indicates that this command does not modify the editor
      */
     READ_ONLY,
+    /**
+     * Indicates that this command handles writability by itself
+     */
+    SELF_SYNCHRONIZED
+  }
+
+  enum class Flag {
     DONT_SAVE_LAST,
 
     /**
@@ -182,4 +187,9 @@ sealed class CommandHandler {
   }
 }
 
-data class CommandHandlerFlags(val rangeFlag: CommandHandler.RangeFlag, val argumentFlag: CommandHandler.ArgumentFlag, val flags: Set<CommandHandler.Flag>)
+data class CommandHandlerFlags(
+  val rangeFlag: CommandHandler.RangeFlag,
+  val argumentFlag: CommandHandler.ArgumentFlag,
+  val access: CommandHandler.Access,
+  val flags: Set<CommandHandler.Flag>
+)

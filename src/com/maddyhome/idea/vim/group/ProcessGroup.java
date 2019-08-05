@@ -71,10 +71,8 @@ public class ProcessGroup {
   }
 
   public void startExCommand(@NotNull Editor editor, DataContext context, @NotNull Command cmd) {
-    if (editor.isOneLineMode()) // Don't allow ex commands in one line editors
-    {
-      return;
-    }
+    // Don't allow ex commands in one line editors
+    if (editor.isOneLineMode()) return;
 
     String initText = getRange(editor, cmd);
     CommandState.getInstance(editor).pushState(CommandState.Mode.EX_ENTRY, CommandState.SubMode.NONE, MappingMode.CMD_LINE);
@@ -104,7 +102,6 @@ public class ProcessGroup {
     ExEntryPanel panel = ExEntryPanel.getInstance();
     panel.deactivate(true);
     boolean res = true;
-    int flags;
     try {
       CommandState.getInstance(editor).popState();
       logger.debug("processing command");
@@ -112,8 +109,7 @@ public class ProcessGroup {
       record(editor, text);
       if (logger.isDebugEnabled()) logger.debug("swing=" + SwingUtilities.isEventDispatchThread());
       if (panel.getLabel().equals(":")) {
-        flags = CommandParser.getInstance().processCommand(editor, context, text, 1);
-        if (logger.isDebugEnabled()) logger.debug("flags=" + flags);
+        CommandParser.getInstance().processCommand(editor, context, text, 1);
       }
       else {
         int pos = VimPlugin.getSearch().search(editor, text, panel.getCount(),

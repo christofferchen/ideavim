@@ -623,7 +623,7 @@ public class SearchHelper {
                                                     boolean isOuter) {
     final CharSequence chars = editor.getDocument().getCharsSequence();
     final int pos = caret.getOffset();
-    if (chars.charAt(pos) == '\n') {
+    if (pos >= chars.length() || chars.charAt(pos) == '\n') {
       return null;
     }
 
@@ -662,6 +662,7 @@ public class SearchHelper {
   }
 
   private static boolean checkInString(@NotNull CharSequence chars, int pos, boolean str) {
+    if (chars.length() == 0) return false;
     int offset = pos;
     while (offset > 0 && chars.charAt(offset) != '\n') {
       offset--;
@@ -1110,6 +1111,8 @@ public class SearchHelper {
     int stop = EditorHelper.getLineEndOffset(editor, caret.getLogicalPosition().line, true);
 
     int pos = caret.getOffset();
+    if (chars.length() <= pos) return null;
+
     int start = pos;
     CharacterHelper.CharacterType[] types = new CharacterHelper.CharacterType[]{CharacterHelper.CharacterType.KEYWORD,
       CharacterHelper.CharacterType.PUNCTUATION};
@@ -1174,6 +1177,8 @@ public class SearchHelper {
     }
 
     int pos = caret.getOffset();
+    if (chars.length() <= pos) return new TextRange(chars.length() - 1, chars.length() - 1);
+
     boolean startSpace = CharacterHelper.charType(chars.charAt(pos), isBig) == CharacterHelper.CharacterType.WHITESPACE;
     // Find word start
     boolean onWordStart = pos == min ||
@@ -1328,16 +1333,6 @@ public class SearchHelper {
     boolean found = false;
     // For forward searches, skip any current whitespace so we start at the start of a word
     if (step > 0 && pos < size - 1) {
-      /*
-      if (CharacterHelper.charType(chars[pos + step], false) == CharacterHelper.WHITESPACE)
-      {
-          if (!stayEnd)
-          {
-              pos += step;
-          }
-          pos = skipSpace(chars, pos, step, size);
-      }
-      */
       if (CharacterHelper.charType(chars.charAt(pos + 1), bigWord) == CharacterHelper.CharacterType.WHITESPACE &&
           !spaceWords) {
         pos = skipSpace(chars, pos + 1, step, size) - 1;
@@ -1379,11 +1374,11 @@ public class SearchHelper {
     }
 
     if (found) {
-      if (res < 0) //(pos <= 0)
+      if (res < 0)
       {
         res = 0;
       }
-      else if (res >= size) //(pos >= size)
+      else if (res >= size)
       {
         res = size - 1;
       }
@@ -1406,7 +1401,7 @@ public class SearchHelper {
    * @param size   The size of the document
    * @return The new position. This will be the first non-whitespace character found or an empty line
    */
-  public static int skipSpace(@NotNull CharSequence chars, int offset, int step, int size) {
+  private static int skipSpace(@NotNull CharSequence chars, int offset, int step, int size) {
     char prev = 0;
     while (offset >= 0 && offset < size) {
       final char c = chars.charAt(offset);
@@ -1420,7 +1415,7 @@ public class SearchHelper {
       offset += step;
     }
 
-    return offset;
+    return offset < size ? offset : size - 1;
   }
 
   /**
@@ -1875,7 +1870,7 @@ public class SearchHelper {
     }
 
     if (res < 0 || count > 0) {
-      res = dir > 0 ? max - 1 : 0;
+      res = dir > 0 ? (max > 0 ? max - 1 : 0) : 0;
     }
     else if (isOuter && ((dir < 0 && findend) || (dir > 0 && !findend))) {
       if (res != 0 && res != max - 1) {
@@ -1893,6 +1888,7 @@ public class SearchHelper {
   @NotNull
   public static TextRange findSentenceRange(@NotNull Editor editor, @NotNull Caret caret, int count, boolean isOuter) {
     CharSequence chars = editor.getDocument().getCharsSequence();
+    if (chars.length() == 0) return new TextRange(0, 0);
     int max = EditorHelper.getFileSize(editor);
     int offset = caret.getOffset();
     int ssel = caret.getSelectionStart();
