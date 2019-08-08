@@ -46,6 +46,8 @@ class YankGroup {
     val motion = argument.motion ?: return false
 
     val caretModel = editor.caretModel
+    if (caretModel.caretCount <= 0) return false
+
     val ranges = ArrayList<Pair<Int, Int>>(caretModel.caretCount)
     val startOffsets = HashMap<Caret, Int>(caretModel.caretCount)
     for (caret in caretModel.allCarets) {
@@ -59,6 +61,8 @@ class YankGroup {
 
     val type = SelectionType.fromCommandFlags(motion.flags)
     val range = getTextRange(ranges, type)
+
+    if (range.size() == 0) return false;
 
     val selectionType = if (type == SelectionType.CHARACTER_WISE && range.isMultiple) SelectionType.BLOCK_WISE else type
     return yankRange(editor, range, selectionType, startOffsets)
