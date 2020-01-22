@@ -15,25 +15,22 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+package com.maddyhome.idea.vim.ex.ranges
 
-package com.maddyhome.idea.vim.ex;
+class LineRange(startLine: Int, endLine: Int) {
 
-/**
- * Exception class
- */
-public class MissingArgumentException extends ExException {
-  /**
-   * Constructs an <code>InvalidArgumentException</code> with no specified detail message.
-   */
-  public MissingArgumentException() {
-  }
+  @JvmField
+  val startLine: Int
+  @JvmField
+  val endLine: Int
 
-  /**
-   * Constructs an <code>InvalidArgumentException</code> with the specified detail message.
-   *
-   * @param s the detail message.
-   */
-  public MissingArgumentException(String s) {
-    super(s);
+  init {
+    if (endLine >= startLine) {
+      this.startLine = startLine
+      this.endLine = endLine
+    } else {
+      this.startLine = endLine
+      this.endLine = startLine
+    }
   }
 }

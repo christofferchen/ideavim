@@ -103,10 +103,20 @@ The following `:set` commands can appear in `~/.ideavimrc` or be set manually in
                   If true, join command will be performed via IDE
                   See wiki/`ideajoin` examples
 
-    `ideastatusbar`  `ideastatusbar` Boolean (default true)    [To Be Released]
+    `ideastatusbar`  `ideastatusbar` Boolean (default true)
     
                   If false, IdeaVim icon won't be shown in the status bar.
                   Works only from `~/.ideavimrc` after the IDE restart.
+                  
+    `lookupkeys`    `lookupkeys`   List of strings
+    
+                  List of keys that should be processed by the IDE during the active lookup (autocompletion).
+                  For example, <Tab> and <Enter> are used by the IDE to finish the lookup,
+                        but <C-W> should be passed to IdeaVim.
+                  Default value: 
+                        "<Tab>", "<Down>", "<Up>", "<Enter>", "<Left>", "<Right>",
+                        "<C-Down>", "<C-Up>", "<PageUp>", "<PageDown>",
+                        "<C-J>", "<C-Q>"
 
     ----------
     [1] - cursor keys, <End>, <Home>, <PageUp> and <PageDown>
