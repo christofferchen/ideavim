@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2019 The IdeaVim authors
+ * Copyright (C) 2003-2020 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -347,5 +347,33 @@ public class MapCommandTest extends VimTestCase {
     typeText(commandToKeys("map as x"));
     typeText(parseKeys("gas"));
     myFixture.checkResult("123<caret>567890");
+  }
+
+  public void testMapZero() {
+    configureByText("A quick <caret>brown fox jumps over the lazy dog");
+    typeText(commandToKeys("nmap 0 w"));
+    typeText(parseKeys("0"));
+    assertOffset(14);
+  }
+
+  public void testMapZeroIgnoredInCount() {
+    configureByText("A quick <caret>brown fox jumps over the lazy dog. A quick brown fox jumps over the lazy dog");
+    typeText(commandToKeys("nmap 0 w"));
+    typeText(parseKeys("10w"));
+    assertOffset(51);
+  }
+
+  public void testMapNonZeroDigit() {
+    configureByText("A quick <caret>brown fox jumps over the lazy dog");
+    typeText(commandToKeys("nmap 2 w"));
+    typeText(parseKeys("2"));
+    assertOffset(14);
+  }
+
+  public void testMapNonZeroDigitNotIncludedInCount() {
+    configureByText("A quick <caret>brown fox jumps over the lazy dog. A quick brown fox jumps over the lazy dog");
+    typeText(commandToKeys("nmap 2 w"));
+    typeText(parseKeys("92"));
+    assertOffset(45);
   }
 }

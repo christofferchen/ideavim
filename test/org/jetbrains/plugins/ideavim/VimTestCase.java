@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2019 The IdeaVim authors
+ * Copyright (C) 2003-2020 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -86,6 +86,8 @@ public abstract class VimTestCase extends UsefulTestCase {
     OptionsManager.INSTANCE.resetAllOptions();
     VimPlugin.getKey().resetKeyMappings();
     VimPlugin.getSearch().resetState();
+
+    if (!VimPlugin.isEnabled()) VimPlugin.setEnabled(true);
 
     // Make sure the entry text field gets a bounds, or we won't be able to work out caret location
     ExEntryPanel.getInstance().getEntry().setBounds(0,0, 100, 25);

@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2019 The IdeaVim authors
+ * Copyright (C) 2003-2020 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ public class RunnableHelper {
   }
 
   static class ReadAction implements Runnable {
-    @NotNull private final Runnable cmd;
+    private final @NotNull Runnable cmd;
 
     ReadAction(@NotNull Runnable cmd) {
       this.cmd = cmd;
@@ -62,7 +62,7 @@ public class RunnableHelper {
   }
 
   static class WriteAction implements Runnable {
-    @NotNull private final Runnable cmd;
+    private final @NotNull Runnable cmd;
 
     WriteAction(@NotNull Runnable cmd) {
       this.cmd = cmd;

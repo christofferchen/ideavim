@@ -16,6 +16,27 @@ It is important to distinguish EAP from traditional pre-release software.
 Please note that the quality of EAP versions may at times be way below even
 usual beta standards.
 
+To Be Released
+--------------
+
+_Available since 0.55.1 EAP:_
+
+**Fixes:**
+* [VIM-1284](https://youtrack.jetbrains.com/issue/VIM-1284) Fix mapping of digits
+* Fix handling of counts on both operator and motion, e.g. `3d2w` deletes 6 words, instead of 32
+* Allow mapping of `<C-K>` and `<C-V>`/`<C-Q>`
+* [VIM-1899](https://youtrack.jetbrains.com/issue/VIM-1899) Add argument to `:registers` command
+* [VIM-1835](https://youtrack.jetbrains.com/issue/VIM-1835) Macros record input keystrokes instead of mapped keystrokes
+* [VIM-1900](https://youtrack.jetbrains.com/issue/VIM-1900) Ensure non-printable output for `:registers`, `:marks` and `:jumps` is encoded correctly
+
+_To Be Released:_
+
+**Features:**
+* `argtextobj.vim` plugin emulation ([argtextobj.vim](https://vim.sourceforge.io/scripts/script.php?script_id=2699))
+
+**Changes:**
+* Replace `ideastatusbar` option with `ideastatusicon`. Now you can make the icon gray.
+
 0.55, 2020-01-20
 --------------
 
@@ -45,6 +66,7 @@ usual beta standards.
 * [VIM-1874](https://youtrack.jetbrains.com/issue/VIM-1874) Fix `set clipboard=unnamed` execution from `~/.ideavimrc`
 * [VIM-1878](https://youtrack.jetbrains.com/issue/VIM-1878) Fix `c` command after extract method action
 * [VIM-1884](https://youtrack.jetbrains.com/issue/VIM-1884) Show quickDoc during popup with `CTRL-J`
+* [VIM-987](https://youtrack.jetbrains.com/issue/VIM-987) Fix arrow keys for the NEO keyboard
 
 0.54, 2019-11-20
 --------------

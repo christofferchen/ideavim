@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2019 The IdeaVim authors
+ * Copyright (C) 2003-2020 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,6 +56,16 @@ object CharacterHelper {
       CharacterType.PUNCTUATION
     }
   }
+
+  @JvmStatic
+  fun isInvisibleControlCharacter(ch: Char): Boolean {
+    val type = Character.getType(ch).toByte()
+    return type == Character.CONTROL || type == Character.FORMAT || type == Character.PRIVATE_USE
+      || type == Character.SURROGATE || type == Character.UNASSIGNED;
+  }
+
+  @JvmStatic
+  fun isZeroWidthCharacter(ch: Char) = ch == '\ufeff' || ch == '\u200b' || ch == '\u200c' || ch == '\u200d'
 
   private fun isHalfWidthKatakanaLetter(ch: Char): Boolean = ch in '\uFF66'..'\uFF9F'
 

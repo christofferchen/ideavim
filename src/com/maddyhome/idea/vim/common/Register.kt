@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2019 The IdeaVim authors
+ * Copyright (C) 2003-2020 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -70,6 +70,10 @@ class Register {
   }
 
   object KeySorter : Comparator<Register> {
-    override fun compare(o1: Register, o2: Register): Int = o1.name.compareTo(o2.name)
+    private const val ORDER = "\"0123456789abcdefghijklmnopqrstuvwxyz-*+.:%#/="
+
+    override fun compare(o1: Register, o2: Register): Int {
+      return ORDER.indexOf(o1.name.toLowerCase()) - ORDER.indexOf(o2.name.toLowerCase())
+    }
   }
 }

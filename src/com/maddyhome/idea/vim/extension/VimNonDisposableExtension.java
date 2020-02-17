@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2019 The IdeaVim authors
+ * Copyright (C) 2003-2020 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,29 +18,18 @@
 
 package com.maddyhome.idea.vim.extension;
 
-import com.intellij.openapi.application.ApplicationManager;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * @author vlan
  */
-public abstract class VimNonDisposableExtension implements VimExtension {
-  private boolean myInitialized = false;
 
+@ApiStatus.ScheduledForRemoval(inVersion = "0.57")
+@Deprecated
+public abstract class VimNonDisposableExtension implements VimExtension {
   @Override
   public final void init() {
-    if (ApplicationManager.getApplication().isUnitTestMode()) {
-      initOnce();
-    }
-    else {
-      if (!myInitialized) {
-        myInitialized = true;
-        initOnce();
-      }
-    }
-  }
-
-  @Override
-  public final void dispose() {
+    initOnce();
   }
 
   protected abstract void initOnce();

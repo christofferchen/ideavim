@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2019 The IdeaVim authors
+ * Copyright (C) 2003-2020 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -133,7 +133,7 @@ sealed class EditorActionHandlerBase(private val myRunForEachCaret: Boolean) {
     val editor = _editor.getTopLevelEditor()
     logger.debug("Execute command with handler: " + this.javaClass.name)
 
-    val cmd = editor.commandState.command ?: run {
+    val cmd = editor.commandState.executingCommand ?: run {
       VimPlugin.indicateError()
       return
     }

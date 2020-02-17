@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2019 The IdeaVim authors
+ * Copyright (C) 2003-2020 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@
  * |i_CTRL-I|             IntelliJ editor tab
  * |i_<NL>|               {@link com.maddyhome.idea.vim.action.change.insert.InsertEnterAction}
  * |i_CTRL-J|             TO BE IMPLEMENTED
- * |i_CTRL-K|             IdeaVim enter digraph
+ * |i_CTRL-K|             {@link com.maddyhome.idea.vim.action.change.insert.StartInsertDigraphAction}
  * |i_CTRL-L|             TO BE IMPLEMENTED
  * |i_<CR>|               {@link com.maddyhome.idea.vim.action.change.insert.InsertEnterAction}
  * |i_CTRL-M|             {@link com.maddyhome.idea.vim.action.change.insert.InsertEnterAction}
@@ -54,8 +54,8 @@
  * |i_CTRL-R_CTRL-P|      TO BE IMPLEMENTED
  * |i_CTRL-T|             {@link com.maddyhome.idea.vim.action.change.shift.ShiftRightLinesAction}
  * |i_CTRL-U|             {@link com.maddyhome.idea.vim.action.change.insert.InsertDeleteInsertedTextAction}
- * |i_CTRL-V|             TO BE IMPLEMENTED
- * |i_CTRL-V_digit|       TO BE IMPLEMENTED
+ * |i_CTRL-V|             {@link com.maddyhome.idea.vim.action.change.insert.StartInsertLiteralAction}
+ * |i_CTRL-V_digit|       {@link com.maddyhome.idea.vim.action.change.insert.StartInsertLiteralAction}
  * |i_CTRL-W|             {@link com.maddyhome.idea.vim.action.change.insert.InsertDeletePreviousWordAction}
  * |i_CTRL-X|             TO BE IMPLEMENTED
  * |i_CTRL-Y|             {@link com.maddyhome.idea.vim.action.change.insert.InsertCharacterAboveCursorAction}
@@ -621,8 +621,8 @@
  * |c_CTRL-K|             {@link com.maddyhome.idea.vim.ui.ExEditorKit.StartDigraphAction}
  * |c_CTRL-L|             TO BE IMPLEMENTED
  * |c_CTRL-M|             {@link com.maddyhome.idea.vim.action.ex.ProcessExEntryAction}
- * |c_CTRL-N|             TO BE IMPLEMENTED
- * |c_CTRL-P|             TO BE IMPLEMENTED
+ * |c_CTRL-N|             {@link com.maddyhome.idea.vim.ui.ExEditorKit.HistoryDownAction} [To Be Released]
+ * |c_CTRL-P|             {@link com.maddyhome.idea.vim.ui.ExEditorKit.HistoryUpAction} [To Be Released]
  * |c_CTRL-Q|             {@link com.maddyhome.idea.vim.ui.ExEditorKit.StartDigraphAction}
  * |c_CTRL-R|             {@link com.maddyhome.idea.vim.ui.ExEditorKit.InsertRegisterAction}
  * |c_CTRL-R_CTRL-A|      TO BE IMPLEMENTED

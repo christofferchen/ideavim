@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2019 The IdeaVim authors
+ * Copyright (C) 2003-2020 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@ import java.util.*
 import javax.swing.KeyStroke
 
 /**
- * This represents a single Vim command to be executed. It may optionally include an argument if appropriate for
- * the command. The command has a count and a type.
+ * This represents a single Vim command to be executed (operator, motion, text object, etc.). It may optionally include
+ * an argument if appropriate for the command. The command has a count and a type.
  */
 data class Command(
   var rawCount: Int,

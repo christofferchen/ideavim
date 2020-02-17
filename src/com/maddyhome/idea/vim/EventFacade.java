@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2019 The IdeaVim authors
+ * Copyright (C) 2003-2020 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -53,16 +53,15 @@ import java.util.Map;
  * @author vlan
  */
 public class EventFacade {
-  @NotNull private static final EventFacade ourInstance = new EventFacade();
+  private static final @NotNull EventFacade ourInstance = new EventFacade();
 
-  @Nullable private TypedActionHandler myOriginalTypedActionHandler;
+  private @Nullable TypedActionHandler myOriginalTypedActionHandler;
   private Map<Project, MessageBusConnection> connections = new HashMap<>();
 
   private EventFacade() {
   }
 
-  @NotNull
-  public static EventFacade getInstance() {
+  public static @NotNull EventFacade getInstance() {
     return ourInstance;
   }
 
@@ -193,8 +192,7 @@ public class EventFacade {
     return connections.get(project);
   }
 
-  @NotNull
-  private TypedAction getTypedAction() {
+  private @NotNull TypedAction getTypedAction() {
     return EditorActionManager.getInstance().getTypedAction();
   }
 }

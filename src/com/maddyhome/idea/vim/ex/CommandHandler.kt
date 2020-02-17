@@ -1,6 +1,6 @@
 /*
  * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
- * Copyright (C) 2003-2019 The IdeaVim authors
+ * Copyright (C) 2003-2020 The IdeaVim authors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -147,7 +147,6 @@ sealed class CommandHandler {
       VimPlugin.showMessage(MessageHelper.message(Msg.e_argforb))
       throw NoArgumentAllowedException()
     }
-    editor.commandState.flags = optFlags
     if (editor.inVisualMode && Flag.SAVE_VISUAL !in argFlags.flags) {
       editor.exitVisualMode()
     }

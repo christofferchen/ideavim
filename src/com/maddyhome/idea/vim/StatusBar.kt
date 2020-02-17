@@ -1,3 +1,21 @@
+/*
+ * IdeaVim - Vim emulator for IDEs based on the IntelliJ platform
+ * Copyright (C) 2003-2020 The IdeaVim authors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package com.maddyhome.idea.vim
 
 import com.intellij.ide.BrowserUtil
@@ -32,6 +50,7 @@ import com.intellij.ui.awt.RelativePoint
 import com.intellij.util.Consumer
 import com.intellij.util.text.VersionComparatorUtil
 import com.maddyhome.idea.vim.group.NotificationService
+import com.maddyhome.idea.vim.option.IdeaStatusIcon
 import com.maddyhome.idea.vim.option.OptionsManager
 import com.maddyhome.idea.vim.ui.VimEmulationConfigurable
 import icons.VimIcons
@@ -41,7 +60,11 @@ import javax.swing.Icon
 import javax.swing.SwingConstants
 
 private class StatusBarIconProvider : StatusBarWidgetProvider {
-  override fun getWidget(project: Project): VimStatusBar? = if (OptionsManager.ideastatusbar.isSet) VimStatusBar else null
+  override fun getWidget(project: Project): VimStatusBar? {
+    if (!OptionsManager.ideastatusbar.isSet) return null
+    if (OptionsManager.ideastatusicon.value == IdeaStatusIcon.disabled) return null
+    return VimStatusBar
+  }
 }
 
 object VimStatusBar : StatusBarWidget, StatusBarWidget.IconPresentation {
@@ -58,7 +81,10 @@ object VimStatusBar : StatusBarWidget, StatusBarWidget.IconPresentation {
 
   override fun getTooltipText() = "IdeaVim"
 
-  override fun getIcon(): Icon = if (VimPlugin.isEnabled()) VimIcons.IDEAVIM else VimIcons.IDEAVIM_DISABLED
+  override fun getIcon(): Icon {
+    if (OptionsManager.ideastatusicon.value == IdeaStatusIcon.gray) return VimIcons.IDEAVIM_DISABLED
+    return if (VimPlugin.isEnabled()) VimIcons.IDEAVIM else VimIcons.IDEAVIM_DISABLED
+  }
 
   override fun getClickConsumer() = Consumer<MouseEvent> { event ->
     val component = event.component
