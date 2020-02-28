@@ -55,10 +55,12 @@
     <vimAction implementation="com.maddyhome.idea.vim.action.window.LookupDownAction" mappingModes="I" keys="«C-N»"/>
     <vimAction implementation="com.maddyhome.idea.vim.action.window.LookupUpAction" mappingModes="I" keys="«C-P»"/>
     <!-- Text -->
-    <vimAction implementation="com.maddyhome.idea.vim.action.motion.text.MotionCamelEndLeftAction" mappingModes="NXO" keys="]b"/>
-    <vimAction implementation="com.maddyhome.idea.vim.action.motion.text.MotionCamelEndRightAction" mappingModes="NXO" keys="]w"/>
-    <vimAction implementation="com.maddyhome.idea.vim.action.motion.text.MotionCamelLeftAction" mappingModes="NXO" keys="[b"/>
-    <vimAction implementation="com.maddyhome.idea.vim.action.motion.text.MotionCamelRightAction" mappingModes="NXO" keys="[w"/>
+    <vimAction implementation="com.maddyhome.idea.vim.action.motion.text.MotionCamelEndLeftAction" mappingModes="NXO" keys="\ge"/>
+    <vimAction implementation="com.maddyhome.idea.vim.action.motion.text.MotionCamelEndRightAction" mappingModes="NXO" keys="\e"/>
+    <vimAction implementation="com.maddyhome.idea.vim.action.motion.text.MotionCamelLeftAction" mappingModes="NXO" keys="\b"/>
+    <vimAction implementation="com.maddyhome.idea.vim.action.motion.text.MotionCamelRightAction" mappingModes="NXO" keys="\w"/>
+    <vimAction implementation="com.maddyhome.idea.vim.extension.camelcasemotion.MotionInnerCamelCaseWordAction" mappingModes="XO" keys="i\w"/>
+
     <vimAction implementation="com.maddyhome.idea.vim.action.motion.text.MotionNthCharacterAction" mappingModes="NXO" keys="go"/>
     <vimAction implementation="com.maddyhome.idea.vim.action.motion.text.MotionWordEndLeftAction" mappingModes="NXO" keys="ge"/>
     <vimAction implementation="com.maddyhome.idea.vim.action.motion.text.MotionBigWordEndLeftAction" mappingModes="NXO" keys="gE"/>
