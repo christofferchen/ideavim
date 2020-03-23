@@ -45,7 +45,7 @@ public class RegisterActions {
     //  ExtensionPoint.addExtensionPointListener(ExtensionPointChangeListener, boolean, Disposable)
     VIM_ACTIONS_EP.getPoint(null).addExtensionPointListener(new ExtensionPointListener<ActionBeanClass>() {
       @Override
-      public void extensionAdded(@NotNull ActionBeanClass extension, @NotNull PluginDescriptor pluginDescriptor) {
+      public void extensionAdded(@NotNull ActionBeanClass extension, PluginDescriptor pluginDescriptor) {
         // Suppress listener before the `VimPlugin.turnOn()` function execution. This logic should be rewritten after
         //   version update (or earlier).
         if (!initialRegistration) return;
@@ -54,7 +54,7 @@ public class RegisterActions {
       }
 
       @Override
-      public void extensionRemoved(@NotNull ActionBeanClass extension, @NotNull PluginDescriptor pluginDescriptor) {
+      public void extensionRemoved(@NotNull ActionBeanClass extension, PluginDescriptor pluginDescriptor) {
         if (!initialRegistration) return;
         unregisterActions();
         registerActions();
@@ -83,7 +83,10 @@ public class RegisterActions {
   }
 
   public static void unregisterActions() {
-    VimPlugin.getKey().unregisterCommandActions();
+    KeyGroup keyGroup = VimPlugin.getKeyIfCreated();
+    if (keyGroup != null) {
+      keyGroup.unregisterCommandActions();
+    }
   }
 
   private static void registerVimCommandActions() {

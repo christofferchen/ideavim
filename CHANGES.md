@@ -29,17 +29,32 @@ _Available since 0.55.1 EAP:_
 * [VIM-1835](https://youtrack.jetbrains.com/issue/VIM-1835) Macros record input keystrokes instead of mapped keystrokes
 * [VIM-1900](https://youtrack.jetbrains.com/issue/VIM-1900) Ensure non-printable output for `:registers`, `:marks` and `:jumps` is encoded correctly
 
-_To Be Released:_
+_Available since 0.55.2 EAP:_
 
 **Features:**
 * `argtextobj.vim` plugin emulation ([argtextobj.vim](https://vim.sourceforge.io/scripts/script.php?script_id=2699))
 * `vim-textobj-entire` plugin emulation ([vim-textobj-entire](https://github.com/kana/vim-textobj-entire))
+* Support `ls/buffers/files` commands
 
 **Changes:**
 * Replace `ideastatusbar` option with `ideastatusicon`. Now you can make the icon gray.
 
 **Fixes:**
 * [VIM-1008](https://youtrack.jetbrains.com/issue/VIM-1008) Correct `ci{` behavior
+
+_Available since 0.55.3 EAP:_
+
+**Features:**
+* [VIM-434](https://youtrack.jetbrains.com/issue/VIM-434) Add `'showcmd'` support, on by default
+* `ReplaceWithRegister` plugin emulation ([ReplaceWithRegister](https://www.vim.org/scripts/script.php?script_id=2703))
+
+**Fixes:**
+* [VIM-570](https://youtrack.jetbrains.com/issue/VIM-570) Print non-ascii characters in ex panel
+* [VIM-926](https://youtrack.jetbrains.com/issue/VIM-926) Fix `<S-Space>` mapping
+* [VIM-1958](https://youtrack.jetbrains.com/issue/VIM-1958) Fix `X` command for linewise selection
+* [VIM-1911](https://youtrack.jetbrains.com/issue/VIM-1911) Lookup keys respect `IDE` handler
+
+_To Be Released..._
 
 0.55, 2020-01-20
 --------------

@@ -33,6 +33,7 @@ import com.intellij.openapi.actionSystem.KeyboardShortcut
 import com.intellij.openapi.keymap.Keymap
 import com.intellij.openapi.keymap.KeymapUtil
 import com.intellij.openapi.options.ShowSettingsUtil
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.SystemInfo
@@ -146,7 +147,7 @@ class NotificationService(private val project: Project?) {
       NotificationType.INFORMATION).notify(project)
   }
 
-  class OpenIdeaVimRcAction(private val notification: Notification?) : AnAction("Open ~/.ideavimrc") {
+  class OpenIdeaVimRcAction(private val notification: Notification?) : DumbAwareAction("Open ~/.ideavimrc") {
     override fun actionPerformed(e: AnActionEvent) {
       val eventProject = e.project
       if (eventProject != null) {
@@ -194,10 +195,11 @@ class NotificationService(private val project: Project?) {
     const val IDEAVIM_NOTIFICATION_ID = "ideavim"
     const val IDEAVIM_NOTIFICATION_TITLE = "IdeaVim"
     const val ideajoinExamplesUrl = "https://github.com/JetBrains/ideavim/wiki/%60ideajoin%60-examples"
-    const val selectModeUrl = "https://vimhelp.org/visual.txt.html#Select-mode"
 
     private fun createIdeaVimRcManually(message: String, project: Project?) {
       val notification = Notification(IDEAVIM_NOTIFICATION_ID, IDEAVIM_NOTIFICATION_TITLE, message, NotificationType.WARNING)
+      @Suppress("UnstableApiUsage", "DEPRECATION")
+      // [VERSION UPDATE] 193+ com.intellij.ide.actions.RevealFileAction.openDirectory
       var actionName = if (SystemInfo.isMac) "Reveal Home in Finder" else "Show Home in " + ShowFilePathAction.getFileManagerName()
       if (!File(System.getProperty("user.home")).exists()) {
         actionName = ""
@@ -205,6 +207,8 @@ class NotificationService(private val project: Project?) {
       notification.addAction(object : AnAction(actionName) {
         override fun actionPerformed(e: AnActionEvent) {
           val homeDir = File(System.getProperty("user.home"))
+          @Suppress("DEPRECATION", "UnstableApiUsage")
+          // [VERSION UPDATE] 193+ com.intellij.ide.actions.RevealFileAction.openDirectory
           ShowFilePathAction.openDirectory(homeDir)
           notification.expire()
         }

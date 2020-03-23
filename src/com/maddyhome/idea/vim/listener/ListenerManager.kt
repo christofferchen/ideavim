@@ -40,6 +40,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.maddyhome.idea.vim.EventFacade
 import com.maddyhome.idea.vim.KeyHandler
+import com.maddyhome.idea.vim.VimKeyListener
 import com.maddyhome.idea.vim.VimPlugin
 import com.maddyhome.idea.vim.VimTypedActionHandler
 import com.maddyhome.idea.vim.command.CommandState
@@ -65,6 +66,7 @@ import com.maddyhome.idea.vim.helper.vimLastColumn
 import com.maddyhome.idea.vim.helper.vimMotionGroup
 import com.maddyhome.idea.vim.option.OptionsManager
 import com.maddyhome.idea.vim.ui.ExEntryPanel
+import com.maddyhome.idea.vim.ui.ShowCmdOptionChangeListener
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.Closeable
@@ -159,6 +161,8 @@ object VimListenerManager {
 
   object GlobalListeners {
     fun enable() {
+      @Suppress("DEPRECATION")
+      // [VERSION UPDATE] 193+ com.intellij.openapi.editor.actionSystem.TypedAction.getInstance
       val typedAction = EditorActionManager.getInstance().typedAction
       if (typedAction.rawHandler !is VimTypedActionHandler) {
         // Actually this if should always be true, but just as protection
@@ -167,6 +171,7 @@ object VimListenerManager {
 
       OptionsManager.number.addOptionChangeListener(EditorGroup.NumberChangeListener.INSTANCE)
       OptionsManager.relativenumber.addOptionChangeListener(EditorGroup.NumberChangeListener.INSTANCE)
+      OptionsManager.showcmd.addOptionChangeListener(ShowCmdOptionChangeListener)
 
       EventFacade.getInstance().addEditorFactoryListener(VimEditorFactoryListener, ApplicationManager.getApplication())
     }
@@ -176,6 +181,7 @@ object VimListenerManager {
 
       OptionsManager.number.removeOptionChangeListener(EditorGroup.NumberChangeListener.INSTANCE)
       OptionsManager.relativenumber.removeOptionChangeListener(EditorGroup.NumberChangeListener.INSTANCE)
+      OptionsManager.showcmd.addOptionChangeListener(ShowCmdOptionChangeListener)
 
       EventFacade.getInstance().removeEditorFactoryListener(VimEditorFactoryListener)
     }
@@ -223,6 +229,7 @@ object VimListenerManager {
 
     @JvmStatic
     fun add(editor: Editor) {
+      editor.contentComponent.addKeyListener(VimKeyListener)
       val eventFacade = EventFacade.getInstance()
       eventFacade.addEditorMouseListener(editor, EditorMouseHandler)
       eventFacade.addEditorMouseMotionListener(editor, EditorMouseHandler)
@@ -232,6 +239,7 @@ object VimListenerManager {
 
     @JvmStatic
     fun remove(editor: Editor) {
+      editor.contentComponent.removeKeyListener(VimKeyListener)
       val eventFacade = EventFacade.getInstance()
       eventFacade.removeEditorMouseListener(editor, EditorMouseHandler)
       eventFacade.removeEditorMouseMotionListener(editor, EditorMouseHandler)

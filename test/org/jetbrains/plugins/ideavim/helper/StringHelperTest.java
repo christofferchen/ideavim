@@ -24,6 +24,7 @@ import org.jetbrains.plugins.ideavim.VimTestCase;
 
 import javax.swing.*;
 import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.util.List;
 
 /**
@@ -31,7 +32,7 @@ import java.util.List;
  */
 public class StringHelperTest extends VimTestCase {
   public void testParseKeyModifiers() {
-    assertTypedKeyStroke('C', "C");
+    assertTypedKeyStroke('C', "<S-C>");
     assertTypedKeyStroke('c', "c");
 
     assertPressedKeyStroke("control C", "<C-C>");
@@ -94,8 +95,8 @@ public class StringHelperTest extends VimTestCase {
   }
 
   public void testControlBoundCharacters() {
-    assertKeyStroke(KeyStroke.getKeyStroke('@', InputEvent.CTRL_MASK), "\u0000");
-    assertKeyStroke(KeyStroke.getKeyStroke('_', InputEvent.CTRL_MASK), "\u001F");
+    assertKeyStroke(KeyStroke.getKeyStroke('@', InputEvent.CTRL_DOWN_MASK), "\u0000");
+    assertKeyStroke(KeyStroke.getKeyStroke('_', InputEvent.CTRL_DOWN_MASK), "\u001F");
   }
 
   public void testControlExceptionCharacters() {
@@ -112,7 +113,12 @@ public class StringHelperTest extends VimTestCase {
   }
 
   private void assertTypedKeyStroke(char expected, @NotNull String actual) {
-    assertEquals(KeyStroke.getKeyStroke(expected), parseKeyStroke(actual));
+    if (Character.isUpperCase(expected)) {
+      assertEquals(KeyStroke.getKeyStroke(expected, KeyEvent.SHIFT_DOWN_MASK), parseKeyStroke(actual));
+    }
+    else {
+      assertEquals(KeyStroke.getKeyStroke(expected), parseKeyStroke(actual));
+    }
   }
 
   @NotNull

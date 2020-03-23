@@ -61,6 +61,7 @@ import javax.swing.SwingConstants
 
 private class StatusBarIconProvider : StatusBarWidgetProvider {
   override fun getWidget(project: Project): VimStatusBar? {
+    @Suppress("DEPRECATION")
     if (!OptionsManager.ideastatusbar.isSet) return null
     if (OptionsManager.ideastatusicon.value == IdeaStatusIcon.disabled) return null
     return VimStatusBar
@@ -68,6 +69,10 @@ private class StatusBarIconProvider : StatusBarWidgetProvider {
 }
 
 object VimStatusBar : StatusBarWidget, StatusBarWidget.IconPresentation {
+
+  init {
+    OptionsManager.ideastatusicon.addOptionChangeListener { _, _ -> this.update() }
+  }
 
   private var statusBar: StatusBar? = null
 
