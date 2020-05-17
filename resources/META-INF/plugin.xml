@@ -3,11 +3,7 @@
   <id>IdeaVIM</id>
   <change-notes><![CDATA[
       <ul>
-        <li>Support argtextobj.vim plugin emulation</li>
-        <li>Support vim-textobj-entire plugin emulation</li>
-        <li>Support ReplaceWithRegister plugin emulation</li>
-        <li>Support showcmd command</li>
-        <li>Support ls/buffers/files command</li>
+        <li>vim-exchange plugin emulation</li>
         <li>Various bug fixes</li>
       </ul>
       <p>See also the complete <a href="https://github.com/JetBrains/ideavim/blob/master/CHANGES.md">changelog</a>.</p>
@@ -26,7 +22,7 @@
 
   <!-- Please search for "[VERSION UPDATE]" in project in case you update the since-build version -->
   <!-- Check for [Version Update] tag in YouTrack as well -->
-  <idea-version since-build="183.4284.148"/>
+  <idea-version since-build="201.5985"/>
 
   <!-- Mark the plugin as compatible with RubyMine and other products based on the IntelliJ platform -->
   <depends>com.intellij.modules.lang</depends>
@@ -54,20 +50,25 @@
   <extensions defaultExtensionNs="com.intellij">
     <applicationConfigurable groupId="editor" instance="com.maddyhome.idea.vim.ui.VimEmulationConfigurable"/>
     <projectService serviceImplementation="com.maddyhome.idea.vim.group.NotificationService"/>
-    <statusBarWidgetProvider implementation="com.maddyhome.idea.vim.StatusBarIconProvider"/>
-    <statusBarWidgetProvider implementation="com.maddyhome.idea.vim.ui.ShowCmdStatusBarWidget"/>
+    <statusBarWidgetFactory implementation="com.maddyhome.idea.vim.ui.StatusBarIconFactory"/>
+    <statusBarWidgetFactory implementation="com.maddyhome.idea.vim.ui.ShowCmdStatusBarWidgetFactory" order="first"/>
 
     <applicationService serviceImplementation="com.maddyhome.idea.vim.VimLocalConfig"/>
     <applicationService serviceImplementation="com.maddyhome.idea.vim.VimPlugin"/>
 
-    <postStartupActivity implementation="com.maddyhome.idea.vim.PluginStartup"/>
+    <!-- Initialise as early as possible so that we're ready to edit quickly. This is especially important for Rider,
+         which (at least for 2020.1) has some long running activities that block other startup extensions. None of the
+         core platform activities have IDs, so we can't use "before ID". We have to use "first" -->
+    <postStartupActivity implementation="com.maddyhome.idea.vim.PluginStartup" order="first"/>
+
+    <editorFloatingToolbarProvider implementation="com.maddyhome.idea.vim.ui.ReloadFloatingToolbar"/>
   </extensions>
 
   <xi:include href="/META-INF/includes/ApplicationServices.xml" xpointer="xpointer(/idea-plugin/*)"/>
-
   <xi:include href="/META-INF/includes/VimActions.xml" xpointer="xpointer(/idea-plugin/*)"/>
   <xi:include href="/META-INF/includes/VimExCommands.xml" xpointer="xpointer(/idea-plugin/*)"/>
   <xi:include href="/META-INF/includes/VimExtensions.xml" xpointer="xpointer(/idea-plugin/*)"/>
+  <xi:include href="/META-INF/includes/VimListeners.xml" xpointer="xpointer(/idea-plugin/*)"/>
 
   <actions>
     <action id="VimPluginToggle" class="com.maddyhome.idea.vim.action.VimPluginToggleAction" text="Vim Emulator" description="Toggle the vim plugin On/off">
@@ -78,6 +79,20 @@
     <action id="VimInternalAddInlays" class="com.maddyhome.idea.vim.action.internal.AddInlaysAction" text="Add Test Inlays | IdeaVim Internal" internal="true"/>
 
     <action id="VimShortcutKeyAction" class="com.maddyhome.idea.vim.action.VimShortcutKeyAction" text="Shortcuts"/>
-    <action id="VimActions" class="com.maddyhome.idea.vim.VimActions" text="Vim Actions"/>
+    <action id="VimActions" class="com.maddyhome.idea.vim.ui.VimActions" text="Vim Actions"/>
+
+    <!--    [Version Update] 202+ use-shortcut-of="ExternalSystem.ProjectRefreshAction" -->
+    <group id="IdeaVim.ReloadVimRc.group" class="com.maddyhome.idea.vim.ui.ReloadFloatingToolbarActionGroup">
+      <action id="IdeaVim.ReloadVimRc.reload" class="com.maddyhome.idea.vim.ui.ReloadVimRc">
+        <keyboard-shortcut first-keystroke="control shift O" keymap="$default"/>
+        <keyboard-shortcut first-keystroke="control shift O" keymap="Eclipse" remove="true"/>
+        <keyboard-shortcut first-keystroke="control shift O" keymap="NetBeans 6.5" remove="true"/>
+        <keyboard-shortcut first-keystroke="control shift O" keymap="Visual Studio" remove="true"/>
+        <keyboard-shortcut first-keystroke="meta shift O" keymap="Mac OS X" replace-all="true"/>
+        <keyboard-shortcut first-keystroke="meta shift O" keymap="Eclipse (Mac OS X)" replace-all="true" remove="true"/>
+        <keyboard-shortcut first-keystroke="meta shift O" keymap="Xcode" replace-all="true" remove="true"/>
+        <keyboard-shortcut first-keystroke="meta shift I" keymap="Mac OS X 10.5+" replace-all="true"/>
+      </action>
+    </group>
   </actions>
 </idea-plugin>

@@ -23,6 +23,7 @@ import com.maddyhome.idea.vim.KeyHandler
 import com.maddyhome.idea.vim.VimPlugin
 import com.maddyhome.idea.vim.action.change.VimRepeater
 import com.maddyhome.idea.vim.command.MappingMode
+import com.maddyhome.idea.vim.command.SelectionType
 import com.maddyhome.idea.vim.helper.EditorDataContext
 import com.maddyhome.idea.vim.helper.StringHelper
 import com.maddyhome.idea.vim.helper.TestInputModel
@@ -45,13 +46,13 @@ import javax.swing.KeyStroke
 object VimExtensionFacade {
   /** The 'map' command for mapping keys to handlers defined in extensions. */
   @JvmStatic
-  @ScheduledForRemoval(inVersion = "0.57")
+  @ScheduledForRemoval(inVersion = "0.58")
   @Deprecated("Only for EasyMotion support")
   fun putExtensionHandlerMapping(modes: Set<MappingMode>, fromKeys: List<KeyStroke>, extensionHandler: VimExtensionHandler, recursive: Boolean) {
     VimPlugin.getKey().putKeyMapping(modes, fromKeys, MappingOwner.Plugin.get("easymotion"), extensionHandler, recursive)
   }
 
-  @ScheduledForRemoval(inVersion = "0.57")
+  @ScheduledForRemoval(inVersion = "0.58")
   @Deprecated("Only for EasyMotion support")
   @JvmStatic
   fun putKeyMapping(modes: Set<MappingMode>, fromKeys: List<KeyStroke>,
@@ -185,5 +186,11 @@ object VimExtensionFacade {
   @JvmStatic
   fun setRegister(register: Char, keys: List<KeyStroke?>?) {
     VimPlugin.getRegister().setKeys(register, keys ?: emptyList())
+  }
+
+  /** Set the current contents of the given register */
+  @JvmStatic
+  fun setRegister(register: Char, keys: List<KeyStroke?>?, type: SelectionType) {
+    VimPlugin.getRegister().setKeys(register, keys ?: emptyList(), type)
   }
 }

@@ -18,6 +18,7 @@
 
 package com.maddyhome.idea.vim.group.visual
 
+import com.intellij.find.FindManager
 import com.intellij.openapi.editor.Caret
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.LogicalPosition
@@ -53,7 +54,7 @@ class VisualMotionGroup {
     editor.commandState.pushModes(CommandState.Mode.VISUAL, lastSelectionType.toSubMode())
 
     val primaryCaret = editor.caretModel.primaryCaret
-    primaryCaret.vimSetSelection(visualMarks.startOffset, visualMarks.endOffset, true)
+    primaryCaret.vimSetSelection(visualMarks.startOffset, visualMarks.endOffset-1, true)
 
     editor.scrollingModel.scrollToCaret(ScrollType.CENTER)
 
@@ -216,6 +217,9 @@ class VisualMotionGroup {
   }
 
   fun autodetectVisualSubmode(editor: Editor): CommandState.SubMode {
+    // IJ specific. See https://youtrack.jetbrains.com/issue/VIM-1924.
+    if (FindManager.getInstance(editor.project).selectNextOccurrenceWasPerformed()) return CommandState.SubMode.VISUAL_CHARACTER
+
     if (editor.caretModel.caretCount > 1 && seemsLikeBlockMode(editor)) {
       return CommandState.SubMode.VISUAL_BLOCK
     }

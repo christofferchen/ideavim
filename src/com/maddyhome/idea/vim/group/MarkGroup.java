@@ -34,6 +34,7 @@ import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.editor.event.EditorFactoryEvent;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.openapi.fileEditor.ex.IdeDocumentHistory;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -81,6 +82,11 @@ public class MarkGroup implements PersistentStateComponent<Element> {
   public void saveJumpLocation(@NotNull Editor editor) {
     addJump(editor, true);
     setMark(editor, '\'');
+
+    Project project = editor.getProject();
+    if (project != null) {
+      IdeDocumentHistory.getInstance(project).includeCurrentCommandAsNavigation();
+    }
   }
 
   /**
@@ -259,7 +265,7 @@ public class MarkGroup implements PersistentStateComponent<Element> {
 
   public void setChangeMarks(@NotNull Editor editor, @NotNull TextRange range) {
     setMark(editor, MARK_CHANGE_START, range.getStartOffset());
-    setMark(editor, MARK_CHANGE_END, range.getEndOffset());
+    setMark(editor, MARK_CHANGE_END, range.getEndOffset()-1);
   }
 
   public @Nullable TextRange getChangeMarks(@NotNull Editor editor) {
@@ -276,7 +282,7 @@ public class MarkGroup implements PersistentStateComponent<Element> {
     if (start != null && end != null) {
       final int startOffset = EditorHelper.getOffset(editor, start.getLogicalLine(), start.getCol());
       final int endOffset = EditorHelper.getOffset(editor, end.getLogicalLine(), end.getCol());
-      return new TextRange(startOffset, endOffset);
+      return new TextRange(startOffset, endOffset+1);
     }
     return null;
   }
@@ -756,12 +762,14 @@ public class MarkGroup implements PersistentStateComponent<Element> {
 
     @Override
     public void bookmarkAdded(@NotNull Bookmark b) {
+      if (!VimPlugin.isEnabled()) return;
       if (!OptionsManager.INSTANCE.getIdeamarks().isSet()) return;
       bookmarkTemplate = b;
     }
 
     @Override
     public void bookmarkRemoved(@NotNull Bookmark b) {
+      if (!VimPlugin.isEnabled()) return;
       if (!OptionsManager.INSTANCE.getIdeamarks().isSet()) return;
 
       char ch = b.getMnemonic();
@@ -775,6 +783,7 @@ public class MarkGroup implements PersistentStateComponent<Element> {
 
     @Override
     public void bookmarkChanged(@NotNull Bookmark b) {
+      if (!VimPlugin.isEnabled()) return;
       /* IJ sets named marks in two steps. Firstly it creates an unnamed mark, then adds a mnemonic */
       if (!OptionsManager.INSTANCE.getIdeamarks().isSet()) return;
       if (b != bookmarkTemplate) return;

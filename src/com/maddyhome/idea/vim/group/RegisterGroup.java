@@ -88,8 +88,8 @@ public class RegisterGroup implements PersistentStateComponent<Element> {
   private static final List<Character> CLIPBOARD_REGISTERS = ImmutableList.of('*', '+');
   private static final Logger logger = Logger.getInstance(RegisterGroup.class.getName());
 
-  private char defaultRegister = '"';
-  private char lastRegister = defaultRegister;
+  public static char DEFAULT_REGISTER = '"';
+  private char lastRegister = DEFAULT_REGISTER;
   private final @NotNull HashMap<Character, Register> registers = new HashMap<>();
   private char recordRegister = 0;
   private @Nullable List<KeyStroke> recordList = null;
@@ -98,15 +98,15 @@ public class RegisterGroup implements PersistentStateComponent<Element> {
     final ListOption clipboardOption = OptionsManager.INSTANCE.getClipboard();
     clipboardOption.addOptionChangeListenerAndExecute((oldValue, newValue) -> {
       if (clipboardOption.contains("unnamed")) {
-        defaultRegister = '*';
+        DEFAULT_REGISTER = '*';
       }
       else if (clipboardOption.contains("unnamedplus")) {
-        defaultRegister = '+';
+        DEFAULT_REGISTER = '+';
       }
       else {
-        defaultRegister = '"';
+        DEFAULT_REGISTER = '"';
       }
-      lastRegister = defaultRegister;
+      lastRegister = DEFAULT_REGISTER;
     });
   }
 
@@ -143,7 +143,7 @@ public class RegisterGroup implements PersistentStateComponent<Element> {
    * Reset the selected register back to the default register.
    */
   public void resetRegister() {
-    lastRegister = defaultRegister;
+    lastRegister = DEFAULT_REGISTER;
     logger.debug("Last register reset to default register");
   }
 
@@ -217,8 +217,8 @@ public class RegisterGroup implements PersistentStateComponent<Element> {
     }
 
     // Also add it to the default register if the default wasn't specified
-    if (register != defaultRegister && ".:/".indexOf(register) == -1) {
-      registers.put(defaultRegister, new Register(defaultRegister, type, processedText, new ArrayList<>(transferableData)));
+    if (register != DEFAULT_REGISTER && ".:/".indexOf(register) == -1) {
+      registers.put(DEFAULT_REGISTER, new Register(DEFAULT_REGISTER, type, processedText, new ArrayList<>(transferableData)));
       if (logger.isDebugEnabled()) logger.debug("register '" + register + "' contains: \"" + processedText + "\"");
     }
 
@@ -227,7 +227,7 @@ public class RegisterGroup implements PersistentStateComponent<Element> {
                        editor.offsetToLogicalPosition(start).line == editor.offsetToLogicalPosition(end).line;
 
       // Deletes go into numbered registers only if text is smaller than a line, register is used or it's a special case
-      if (!smallInlineDeletion || register != defaultRegister || isSmallDeletionSpecialCase(editor)) {
+      if (!smallInlineDeletion || register != DEFAULT_REGISTER || isSmallDeletionSpecialCase(editor)) {
         // Old 1 goes to 2, etc. Old 8 to 9, old 9 is lost
         for (char d = '8'; d >= '1'; d--) {
           Register t = registers.get(d);
@@ -240,18 +240,18 @@ public class RegisterGroup implements PersistentStateComponent<Element> {
       }
 
       // Deletes smaller than one line and without specified register go the the "-" register
-      if (smallInlineDeletion && register == defaultRegister) {
+      if (smallInlineDeletion && register == DEFAULT_REGISTER) {
         registers.put('-', new Register('-', type, processedText, new ArrayList<>(transferableData)));
       }
     }
     // Yanks also go to register 0 if the default register was used
-    else if (register == defaultRegister) {
+    else if (register == DEFAULT_REGISTER) {
       registers.put('0', new Register('0', type, processedText, new ArrayList<>(transferableData)));
       if (logger.isDebugEnabled()) logger.debug("register '" + '0' + "' contains: \"" + processedText + "\"");
     }
 
     if (start != -1) {
-      VimPlugin.getMark().setChangeMarks(editor, new TextRange(start, Math.max(end - 1, 0)));
+      VimPlugin.getMark().setChangeMarks(editor, new TextRange(start, end));
     }
 
     return true;
@@ -352,6 +352,9 @@ public class RegisterGroup implements PersistentStateComponent<Element> {
     if (Character.isUpperCase(r)) {
       r = Character.toLowerCase(r);
     }
+    if (CLIPBOARD_REGISTERS.contains(r)) {
+      ClipboardHandler.setClipboardText(register.getText(), new ArrayList<>(register.getTransferableData()), register.getRawText());
+    }
     registers.put(r, register);
   }
 
@@ -368,7 +371,7 @@ public class RegisterGroup implements PersistentStateComponent<Element> {
    * The register key for the default register.
    */
   public char getDefaultRegister() {
-    return defaultRegister;
+    return DEFAULT_REGISTER;
   }
 
   public @NotNull List<Register> getRegisters() {
@@ -409,6 +412,10 @@ public class RegisterGroup implements PersistentStateComponent<Element> {
 
   public void setKeys(char register, @NotNull List<KeyStroke> keys) {
     registers.put(register, new Register(register, SelectionType.CHARACTER_WISE, keys));
+  }
+
+  public void setKeys(char register, @NotNull List<KeyStroke> keys, SelectionType type) {
+    registers.put(register, new Register(register, type, keys));
   }
 
   public void finishRecording(Editor editor) {

@@ -32,7 +32,10 @@ import com.intellij.openapi.editor.*;
 import com.intellij.openapi.editor.actionSystem.ActionPlan;
 import com.intellij.openapi.editor.actionSystem.TypedActionHandler;
 import com.intellij.openapi.editor.actionSystem.TypedActionHandlerEx;
-import com.intellij.openapi.editor.event.*;
+import com.intellij.openapi.editor.event.DocumentEvent;
+import com.intellij.openapi.editor.event.DocumentListener;
+import com.intellij.openapi.editor.event.EditorMouseEvent;
+import com.intellij.openapi.editor.event.EditorMouseListener;
 import com.intellij.openapi.editor.ex.EditorEx;
 import com.intellij.openapi.editor.impl.TextRangeInterval;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
@@ -84,6 +87,8 @@ public class ChangeGroup {
   private static final String VIM_MOTION_WORD_END_RIGHT = "VimMotionWordEndRightAction";
   private static final String VIM_MOTION_BIG_WORD_END_RIGHT = "VimMotionBigWordEndRightAction";
   private static final String VIM_MOTION_CAMEL_END_RIGHT = "VimMotionCamelEndRightAction";
+  private static final ImmutableSet<String> wordMotions =
+    ImmutableSet.of(VIM_MOTION_WORD_RIGHT, VIM_MOTION_BIG_WORD_RIGHT, VIM_MOTION_CAMEL_RIGHT);
 
   private @Nullable Command lastInsert;
 
@@ -431,18 +436,12 @@ public class ChangeGroup {
     }
   };
 
-  public void editorCreated(@NotNull EditorFactoryEvent event) {
-    final Editor editor = event.getEditor();
+  public void editorCreated(Editor editor) {
     EventFacade.getInstance().addEditorMouseListener(editor, listener);
-    UserDataManager.setVimChangeGroup(editor, true);
   }
 
-  public void editorReleased(@NotNull EditorFactoryEvent event) {
-    final Editor editor = event.getEditor();
-    if (UserDataManager.getVimChangeGroup(editor)) {
-      EventFacade.getInstance().removeEditorMouseListener(editor, listener);
-      UserDataManager.setVimChangeGroup(editor, false);
-    }
+  public void editorReleased(Editor editor) {
+    EventFacade.getInstance().removeEditorMouseListener(editor, listener);
   }
 
   /**
@@ -1223,13 +1222,12 @@ public class ChangeGroup {
     boolean bigWord = id.equals(VIM_MOTION_BIG_WORD_RIGHT);
     final CharSequence chars = editor.getDocument().getCharsSequence();
     final int offset = caret.getOffset();
-    if (EditorHelper.getFileSize(editor) > 0) {
+    int fileSize = EditorHelper.getFileSize(editor);
+    if (fileSize > 0) {
       final CharacterHelper.CharacterType charType = CharacterHelper.charType(chars.charAt(offset), bigWord);
       if (charType != CharacterHelper.CharacterType.WHITESPACE) {
-        final boolean lastWordChar = offset > EditorHelper.getFileSize(editor) ||
+        final boolean lastWordChar = offset >= fileSize - 1 ||
                                      CharacterHelper.charType(chars.charAt(offset + 1), bigWord) != charType;
-        final ImmutableSet<String> wordMotions =
-          ImmutableSet.of(VIM_MOTION_WORD_RIGHT, VIM_MOTION_BIG_WORD_RIGHT, VIM_MOTION_CAMEL_RIGHT);
         if (wordMotions.contains(id) && lastWordChar && motion.getCount() == 1) {
           final boolean res = deleteCharacter(editor, caret, 1, true);
           if (res) {
@@ -1258,7 +1256,7 @@ public class ChangeGroup {
     }
 
     if (kludge) {
-      int size = EditorHelper.getFileSize(editor);
+      int size = fileSize;
       int cnt = count * motion.getCount();
       int pos1 = SearchHelper.findNextWordEnd(chars, offset, size, cnt, bigWord, false);
       int pos2 = SearchHelper.findNextWordEnd(chars, pos1, size, -cnt, bigWord, false);
@@ -1751,7 +1749,7 @@ public class ChangeGroup {
       if (type != null) {
         final int start = range.getStartOffset();
         VimPlugin.getMark().setMark(editor, MarkGroup.MARK_CHANGE_POS, start);
-        VimPlugin.getMark().setChangeMarks(editor, new TextRange(start, start));
+        VimPlugin.getMark().setChangeMarks(editor, new TextRange(start, start+1));
       }
 
       return true;

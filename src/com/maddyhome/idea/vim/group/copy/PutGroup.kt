@@ -135,7 +135,7 @@ class PutGroup {
       if (data.visualSelection != null) {
         val offset = editor.caretModel.primaryCaret.offset
         VimPlugin.getMark().setMark(editor, MarkGroup.MARK_CHANGE_POS, offset)
-        VimPlugin.getMark().setChangeMarks(editor, TextRange(offset, offset))
+        VimPlugin.getMark().setChangeMarks(editor, TextRange(offset, offset+1))
       }
       return null
     }
@@ -144,7 +144,7 @@ class PutGroup {
 
     if (data.textData.typeInRegister.isLine && text.isNotEmpty() && text.last() != '\n') text += '\n'
 
-    if (data.textData.typeInRegister.isChar && text.lastOrNull() == '\n' && data.visualSelection?.typeInEditor?.isLine != true) text = text.dropLast(1)
+    if (data.textData.typeInRegister.isChar && text.lastOrNull() == '\n' && data.visualSelection?.typeInEditor?.isLine == false) text = text.dropLast(1)
 
     return ProcessedTextData(text, data.textData.typeInRegister, data.textData.transferableData)
   }

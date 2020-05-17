@@ -25,6 +25,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.util.ui.JBUI;
 import com.maddyhome.idea.vim.VimPlugin;
+import com.maddyhome.idea.vim.VimProjectService;
 import com.maddyhome.idea.vim.group.HistoryGroup;
 import com.maddyhome.idea.vim.helper.UiHelper;
 import kotlin.text.StringsKt;
@@ -47,6 +48,8 @@ import static java.lang.Math.min;
  * Provides a custom keymap for the text field. The keymap is the VIM Ex command keymapping
  */
 public class ExTextField extends JTextField {
+
+  public final static String KEYMAP_NAME = "ex";
 
   ExTextField() {
     // We need to store this in a field, because we can't trust getCaret(), as it will return an instance of
@@ -112,7 +115,7 @@ public class ExTextField extends JTextField {
     }
 
     setInputMap(WHEN_FOCUSED, new InputMap());
-    Keymap map = addKeymap("ex", getKeymap());
+    Keymap map = addKeymap(KEYMAP_NAME, getKeymap());
     loadKeymap(map, ExKeyBindings.INSTANCE.getBindings(), actions);
     map.setDefaultAction(new ExEditorKit.DefaultExKeyHandler());
     setKeymap(map);
@@ -233,7 +236,8 @@ public class ExTextField extends JTextField {
     String disposeKey = vimExTextFieldDisposeKey + editor.hashCode();
     Project project = editor.getProject();
     if (Disposer.get(disposeKey) == null && project != null) {
-      Disposer.register(project, () -> {
+      VimProjectService parentDisposable = VimProjectService.getInstance(project);
+      Disposer.register(parentDisposable, () -> {
         this.editor = null;
         this.context = null;
       }, disposeKey);

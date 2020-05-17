@@ -3,6 +3,12 @@ The Changelog
 
 History of changes in IdeaVim for the IntelliJ platform.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project DOES NOT adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+Stable versions use X.Y format.
+EAP versions use X.Y.Z format.
+
 
 Get an Early Access
 -------------------
@@ -17,44 +23,69 @@ Please note that the quality of EAP versions may at times be way below even
 usual beta standards.
 
 To Be Released
---------------
-
-_Available since 0.55.1 EAP:_
-
-**Fixes:**
-* [VIM-1284](https://youtrack.jetbrains.com/issue/VIM-1284) Fix mapping of digits
-* Fix handling of counts on both operator and motion, e.g. `3d2w` deletes 6 words, instead of 32
-* Allow mapping of `<C-K>` and `<C-V>`/`<C-Q>`
-* [VIM-1899](https://youtrack.jetbrains.com/issue/VIM-1899) Add argument to `:registers` command
-* [VIM-1835](https://youtrack.jetbrains.com/issue/VIM-1835) Macros record input keystrokes instead of mapped keystrokes
-* [VIM-1900](https://youtrack.jetbrains.com/issue/VIM-1900) Ensure non-printable output for `:registers`, `:marks` and `:jumps` is encoded correctly
-
-_Available since 0.55.2 EAP:_
+-------------
 
 **Features:**
-* `argtextobj.vim` plugin emulation ([argtextobj.vim](https://vim.sourceforge.io/scripts/script.php?script_id=2699))
-* `vim-textobj-entire` plugin emulation ([vim-textobj-entire](https://github.com/kana/vim-textobj-entire))
-* Support `ls/buffers/files` commands
+* `exchange` plugin emulation ([vim-exchange](https://github.com/tommcdo/vim-exchange)).
+* `~/.ideavimrc` file can be reloaded using new floating action.
+
+![IdeaVimRc reload](resources/changes/0.58/reload_ideavimrc.png)
+
+* Add `:buffer` command.
+
+**Changes:**
+* Support IntelliJ's smooth scrolling. Use "Enable smooth scrolling" checkbox in _Preferences | Editor | General_ to disable.
+
+**Fixes:**
+* [VIM-1994](https://youtrack.jetbrains.com/issue/VIM-1994) Correct paste after `y}P` command.
+* [VIM-1924](https://youtrack.jetbrains.com/issue/VIM-1924) Select next occurrence doesn't become block selection.
+
+**Merged PRs:**
+* [233](https://github.com/JetBrains/ideavim/pull/233) by [valis](https://github.com/valis): [VIM-1994] Correct paste after `y}P` command.
+* [224](https://github.com/JetBrains/ideavim/pull/224) by [pmnoxx](https://github.com/pmnoxx): Populate intelij navigation history together with ideavim jumplist.
+* [227](https://github.com/JetBrains/ideavim/pull/227) by [angelbot](https://github.com/angelbot): Add support for buffer command.
+* [230](https://github.com/JetBrains/ideavim/pull/230) by [fan-tom](https://github.com/fan-tom): VIM-1924.
+* [231](https://github.com/JetBrains/ideavim/pull/231) by [citizenmatt](https://github.com/citizenmatt): Support smooth scrolling.
+
+
+0.57, 2020-04-28
+-------------
+
+**Fixes:**
+* [VIM-1992](https://youtrack.jetbrains.com/issue/VIM-1992) Fix mappings to `<S-Letter>`
+* [VIM-1991](https://youtrack.jetbrains.com/issue/VIM-1991) Fix working with number registers
+
+**Merged PRs:**
+* [234](https://github.com/JetBrains/ideavim/pull/234) by [runforprogram](https://github.com/runforprogram): [VIM-1991] fix >0 number register not work
+
+0.56, 2020-04-09
+--------------
+
+**Features:**
+* `ReplaceWithRegister` plugin emulation ([ReplaceWithRegister](https://www.vim.org/scripts/script.php?script_id=2703)).
+* `argtextobj.vim` plugin emulation ([argtextobj.vim](https://vim.sourceforge.io/scripts/script.php?script_id=2699)).
+* `vim-textobj-entire` plugin emulation ([vim-textobj-entire](https://github.com/kana/vim-textobj-entire)).
+* [VIM-434](https://youtrack.jetbrains.com/issue/VIM-434) Add `'showcmd'` support, on by default.
+* Support `ls/buffers/files` commands.
 
 **Changes:**
 * Replace `ideastatusbar` option with `ideastatusicon`. Now you can make the icon gray.
 
-**Fixes:**
-* [VIM-1008](https://youtrack.jetbrains.com/issue/VIM-1008) Correct `ci{` behavior
-
-_Available since 0.55.3 EAP:_
-
-**Features:**
-* [VIM-434](https://youtrack.jetbrains.com/issue/VIM-434) Add `'showcmd'` support, on by default
-* `ReplaceWithRegister` plugin emulation ([ReplaceWithRegister](https://www.vim.org/scripts/script.php?script_id=2703))
+**Deprecations:**
+* `ideastatusbar` option is deprecated now. See `ideastatusicon`.
 
 **Fixes:**
-* [VIM-570](https://youtrack.jetbrains.com/issue/VIM-570) Print non-ascii characters in ex panel
-* [VIM-926](https://youtrack.jetbrains.com/issue/VIM-926) Fix `<S-Space>` mapping
-* [VIM-1958](https://youtrack.jetbrains.com/issue/VIM-1958) Fix `X` command for linewise selection
-* [VIM-1911](https://youtrack.jetbrains.com/issue/VIM-1911) Lookup keys respect `IDE` handler
-
-_To Be Released..._
+* [VIM-1284](https://youtrack.jetbrains.com/issue/VIM-1284) Fix mapping of digits.
+* Fix handling of counts on both operator and motion, e.g. `3d2w` deletes 6 words, instead of 32.
+* Allow mapping of `<C-K>` and `<C-V>`/`<C-Q>`.
+* [VIM-1899](https://youtrack.jetbrains.com/issue/VIM-1899) Add argument to `:registers` command.
+* [VIM-1835](https://youtrack.jetbrains.com/issue/VIM-1835) Macros record input keystrokes instead of mapped keystrokes.
+* [VIM-1900](https://youtrack.jetbrains.com/issue/VIM-1900) Ensure non-printable output for `:registers`, `:marks` and `:jumps` is encoded correctly.
+* [VIM-570](https://youtrack.jetbrains.com/issue/VIM-570) Print non-ascii characters in ex panel.
+* [VIM-926](https://youtrack.jetbrains.com/issue/VIM-926) Fix `<S-Space>` mapping.
+* [VIM-1958](https://youtrack.jetbrains.com/issue/VIM-1958) Fix `X` command for linewise selection.
+* [VIM-1911](https://youtrack.jetbrains.com/issue/VIM-1911) Lookup keys respect `IDE` handler.
+* [VIM-1008](https://youtrack.jetbrains.com/issue/VIM-1008) Correct `ci{` behavior.
 
 0.55, 2020-01-20
 --------------

@@ -52,12 +52,10 @@ import java.util.List;
  */
 @State(name = "VimEditorSettings", storages = {@Storage(value = "$APP_CONFIG$/vim_settings.xml")})
 public class EditorGroup implements PersistentStateComponent<Element> {
-  private static final boolean ANIMATED_SCROLLING_VIM_VALUE = false;
   private static final boolean REFRAIN_FROM_SCROLLING_VIM_VALUE = true;
   public static final String EDITOR_STORE_ELEMENT = "editor";
 
   private boolean isBlockCursor = false;
-  private boolean isAnimatedScrolling = false;
   private boolean isRefrainFromScrolling = false;
   private Boolean isKeyRepeat = null;
 
@@ -68,18 +66,6 @@ public class EditorGroup implements PersistentStateComponent<Element> {
       updateLineNumbers(e.getEditor(), requiresRepaint);
     }
   };
-
-  public void turnOn() {
-    for (Editor editor : EditorFactory.getInstance().getAllEditors()) {
-      VimPlugin.getEditor().editorCreated(editor);
-    }
-  }
-
-  public void turnOff() {
-    for (Editor editor : EditorFactory.getInstance().getAllEditors()) {
-      VimPlugin.getEditor().editorDeinit(editor, false);
-    }
-  }
 
   private void initLineNumbers(final @NotNull Editor editor) {
     if (!supportsVimLineNumbers(editor) || UserDataManager.getVimEditorGroup(editor)) {
@@ -244,7 +230,6 @@ public class EditorGroup implements PersistentStateComponent<Element> {
 
   public void editorCreated(@NotNull Editor editor) {
     isBlockCursor = editor.getSettings().isBlockCursor();
-    isAnimatedScrolling = editor.getSettings().isAnimatedScrolling();
     isRefrainFromScrolling = editor.getSettings().isRefrainFromScrolling();
     DocumentManager.INSTANCE.addListeners(editor.getDocument());
     VimPlugin.getKey().registerRequiredShortcutKeys(editor);
@@ -258,7 +243,6 @@ public class EditorGroup implements PersistentStateComponent<Element> {
       KeyHandler.getInstance().reset(editor);
     }
     editor.getSettings().setBlockCursor(!CommandStateHelper.inInsertMode(editor));
-    editor.getSettings().setAnimatedScrolling(ANIMATED_SCROLLING_VIM_VALUE);
     editor.getSettings().setRefrainFromScrolling(REFRAIN_FROM_SCROLLING_VIM_VALUE);
   }
 
@@ -267,7 +251,6 @@ public class EditorGroup implements PersistentStateComponent<Element> {
     UserDataManager.unInitializeEditor(editor);
     VimPlugin.getKey().unregisterShortcutKeys(editor);
     editor.getSettings().setBlockCursor(isBlockCursor);
-    editor.getSettings().setAnimatedScrolling(isAnimatedScrolling);
     editor.getSettings().setRefrainFromScrolling(isRefrainFromScrolling);
     DocumentManager.INSTANCE.removeListeners(editor.getDocument());
   }

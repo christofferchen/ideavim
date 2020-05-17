@@ -68,28 +68,6 @@ public class MotionGroup {
   public static final int LAST_t = 4;
   public static final int LAST_COLUMN = 9999;
 
-  public void editorCreated(@NotNull EditorFactoryEvent event) {
-    final Editor editor = event.getEditor();
-    // This ridiculous code ensures that a lot of events are processed BEFORE we finally start listening
-    // to visible area changes. The primary reason for this change is to fix the cursor position bug
-    // using the gd and gD commands (Goto Declaration). This bug has been around since Idea 6.0.4?
-    // Prior to this change the visible area code was moving the cursor around during file load and messing
-    // with the cursor position of the Goto Declaration processing.
-    ApplicationManager.getApplication().invokeLater(() -> ApplicationManager.getApplication()
-      .invokeLater(() -> ApplicationManager.getApplication().invokeLater(() -> {
-        VimListenerManager.EditorListeners.add(editor);
-        UserDataManager.setVimMotionGroup(editor, true);
-      })));
-  }
-
-  public void editorReleased(@NotNull EditorFactoryEvent event) {
-    Editor editor = event.getEditor();
-    if (UserDataManager.getVimMotionGroup(editor)) {
-      VimListenerManager.EditorListeners.remove(editor);
-      UserDataManager.setVimMotionGroup(editor, false);
-    }
-  }
-
   /**
    * This helper method calculates the complete range a motion will move over taking into account whether
    * the motion is FLAG_MOT_LINEWISE or FLAG_MOT_CHARACTERWISE (FLAG_MOT_INCLUSIVE or FLAG_MOT_EXCLUSIVE).
@@ -259,7 +237,7 @@ public class MotionGroup {
   }
 
   private static int getScrollScreenTargetCaretVisualLine(final @NotNull Editor editor, int rawCount, boolean down) {
-    final Rectangle visibleArea = editor.getScrollingModel().getVisibleArea();
+    final Rectangle visibleArea = EditorHelper.getVisibleArea(editor);
     final int caretVisualLine = editor.getCaretModel().getVisualPosition().line;
     final int scrollOption = getScrollOption(rawCount);
 
@@ -890,7 +868,7 @@ public class MotionGroup {
   }
 
   private static void scrollColumnToLeftOfScreen(@NotNull Editor editor, int column) {
-    editor.getScrollingModel().scrollHorizontally(column * EditorHelper.getColumnWidth(editor));
+    EditorHelper.scrollHorizontally(editor, column * EditorHelper.getColumnWidth(editor));
   }
 
   public int moveCaretToMiddleColumn(@NotNull Editor editor, @NotNull Caret caret) {
@@ -1106,8 +1084,7 @@ public class MotionGroup {
       return false;
     }
 
-    final ScrollingModel scrollingModel = editor.getScrollingModel();
-    final Rectangle visibleArea = scrollingModel.getVisibleArea();
+    final Rectangle visibleArea = EditorHelper.getVisibleArea(editor);
 
     int targetCaretVisualLine = getScrollScreenTargetCaretVisualLine(editor, rawCount, down);
 
@@ -1128,7 +1105,7 @@ public class MotionGroup {
       }
       if (moved) {
         // We'll keep the caret at the same position, although that might not be the same line offset as previously
-        targetCaretVisualLine = editor.yToVisualLine(yInitialCaret + scrollingModel.getVisibleArea().y - yPrevious);
+        targetCaretVisualLine = editor.yToVisualLine(yInitialCaret + EditorHelper.getVisibleArea(editor).y - yPrevious);
       }
     }
     else {

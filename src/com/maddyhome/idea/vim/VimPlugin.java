@@ -19,14 +19,11 @@ package com.maddyhome.idea.vim;
 
 import com.intellij.ide.plugins.IdeaPluginDescriptor;
 import com.intellij.ide.plugins.PluginManager;
-import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationListener;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.Application;
-import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.PermanentInstallationID;
 import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.components.State;
@@ -40,12 +37,9 @@ import com.intellij.openapi.options.ShowSettingsUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.util.JDOMUtil;
 import com.intellij.openapi.util.SystemInfo;
-import com.intellij.openapi.vfs.CharsetToolkit;
 import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.WindowManager;
-import com.intellij.util.io.HttpRequests;
 import com.maddyhome.idea.vim.ex.CommandParser;
 import com.maddyhome.idea.vim.ex.vimscript.VimScriptParser;
 import com.maddyhome.idea.vim.extension.VimExtensionRegistrar;
@@ -57,18 +51,17 @@ import com.maddyhome.idea.vim.helper.MacKeyRepeat;
 import com.maddyhome.idea.vim.listener.VimListenerManager;
 import com.maddyhome.idea.vim.option.OptionsManager;
 import com.maddyhome.idea.vim.ui.ExEntryPanel;
+import com.maddyhome.idea.vim.ui.StatusBarIconFactory;
 import com.maddyhome.idea.vim.ui.VimEmulationConfigurable;
+import com.maddyhome.idea.vim.ui.VimRcFileState;
 import org.jdom.Element;
-import org.jdom.JDOMException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.event.HyperlinkEvent;
 import java.awt.*;
 import java.io.File;
-import java.io.IOException;
-import java.net.URLEncoder;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 import static com.maddyhome.idea.vim.group.EditorGroup.EDITOR_STORE_ELEMENT;
 import static com.maddyhome.idea.vim.group.KeyGroup.SHORTCUT_CONFLICTS_ELEMENT;
@@ -84,7 +77,6 @@ import static com.maddyhome.idea.vim.group.KeyGroup.SHORTCUT_CONFLICTS_ELEMENT;
 @State(name = "VimSettings", storages = {@Storage("$APP_CONFIG$/vim_settings.xml")})
 public class VimPlugin implements PersistentStateComponent<Element>, Disposable {
   private static final String IDEAVIM_PLUGIN_ID = "IdeaVIM";
-  private static final String IDEAVIM_STATISTICS_TIMESTAMP_KEY = "ideavim.statistics.timestamp";
   private static final int STATE_VERSION = 6;
 
   private static long lastBeepTimeMillis;
@@ -114,7 +106,8 @@ public class VimPlugin implements PersistentStateComponent<Element>, Disposable 
       Application application = ApplicationManager.getApplication();
       if (application.isUnitTestMode()) {
         application.invokeAndWait(this::turnOnPlugin);
-      } else {
+      }
+      else {
         application.invokeLater(this::turnOnPlugin);
       }
     }
@@ -148,53 +141,6 @@ public class VimPlugin implements PersistentStateComponent<Element>, Disposable 
 
   public static @NotNull MotionGroup getMotion() {
     return ServiceManager.getService(MotionGroup.class);
-  }
-
-  /**
-   * Reports statistics about installed IdeaVim and enabled Vim emulation.
-   * <p>
-   * See https://github.com/go-lang-plugin-org/go-lang-idea-plugin/commit/5182ab4a1d01ad37f6786268a2fe5e908575a217
-   */
-  public static void statisticReport() {
-    final PropertiesComponent propertiesComponent = PropertiesComponent.getInstance();
-    final long lastUpdate = propertiesComponent.getOrInitLong(IDEAVIM_STATISTICS_TIMESTAMP_KEY, 0);
-    final boolean outOfDate = lastUpdate == 0 || System.currentTimeMillis() - lastUpdate > TimeUnit.DAYS.toMillis(1);
-    if (outOfDate && isEnabled()) {
-      ApplicationManager.getApplication().executeOnPooledThread(() -> {
-        try {
-          final String buildNumber = ApplicationInfo.getInstance().getBuild().asString();
-          final String version = URLEncoder.encode(getVersion(), CharsetToolkit.UTF8);
-          final String os = URLEncoder.encode(SystemInfo.OS_NAME + " " + SystemInfo.OS_VERSION, CharsetToolkit.UTF8);
-          final String uid = PermanentInstallationID.get();
-          final String url = "https://plugins.jetbrains.com/plugins/list" +
-                             "?pluginId=" +
-                             IDEAVIM_PLUGIN_ID +
-                             "&build=" +
-                             buildNumber +
-                             "&pluginVersion=" +
-                             version +
-                             "&os=" +
-                             os +
-                             "&uuid=" +
-                             uid;
-          PropertiesComponent.getInstance()
-            .setValue(IDEAVIM_STATISTICS_TIMESTAMP_KEY, String.valueOf(System.currentTimeMillis()));
-          HttpRequests.request(url).connect(request -> {
-            LOG.info("Sending statistics: " + url);
-            try {
-              JDOMUtil.load(request.getInputStream());
-            }
-            catch (JDOMException e) {
-              LOG.warn(e);
-            }
-            return null;
-          });
-        }
-        catch (IOException e) {
-          LOG.warn(e);
-        }
-      });
-    }
   }
 
   public static @NotNull ChangeGroup getChange() {
@@ -288,10 +234,15 @@ public class VimPlugin implements PersistentStateComponent<Element>, Disposable 
     ideavimrcRegistered = true;
 
     if (!ApplicationManager.getApplication().isUnitTestMode()) {
-      final File ideaVimRc = VimScriptParser.findIdeaVimRc();
-      if (ideaVimRc != null) {
-        VimScriptParser.executeFile(ideaVimRc);
-      }
+      executeIdeaVimRc();
+    }
+  }
+
+  public void executeIdeaVimRc() {
+    final File ideaVimRc = VimScriptParser.findIdeaVimRc();
+    if (ideaVimRc != null) {
+      List<String> parsedLines = VimScriptParser.executeFile(ideaVimRc);
+      VimRcFileState.INSTANCE.saveFileState(ideaVimRc.getAbsolutePath(), parsedLines);
     }
   }
 
@@ -299,8 +250,6 @@ public class VimPlugin implements PersistentStateComponent<Element>, Disposable 
     return PluginId.getId(IDEAVIM_PLUGIN_ID);
   }
 
-  // [VERSION UPDATE] 193+ remove suppress
-  @SuppressWarnings({"MissingRecentApi", "UnstableApiUsage"})
   public static @NotNull String getVersion() {
     final IdeaPluginDescriptor plugin = PluginManager.getPlugin(getPluginId());
     if (!ApplicationManager.getApplication().isInternal()) {
@@ -328,7 +277,7 @@ public class VimPlugin implements PersistentStateComponent<Element>, Disposable 
       getInstance().turnOnPlugin();
     }
 
-    VimStatusBar.INSTANCE.update();
+    StatusBarIconFactory.Companion.updateIcon();
   }
 
   public static boolean isError() {
@@ -392,10 +341,6 @@ public class VimPlugin implements PersistentStateComponent<Element>, Disposable 
   private void turnOnPlugin() {
     ApplicationManager.getApplication().invokeLater(this::updateState);
 
-    getEditor().turnOn();
-    getSearch().turnOn();
-    VimListenerManager.INSTANCE.turnOn();
-
     // Register vim actions in command mode
     RegisterActions.registerActions();
 
@@ -407,27 +352,27 @@ public class VimPlugin implements PersistentStateComponent<Element>, Disposable 
 
     // Execute ~/.ideavimrc
     registerIdeavimrc();
+
+    // Turing on should be performed after all commands registration
+    getSearch().turnOn();
+    VimListenerManager.INSTANCE.turnOn();
   }
 
   private void turnOffPlugin() {
     KeyHandler.getInstance().fullReset(null);
 
-    // Unregister vim actions in command mode
-    RegisterActions.unregisterActions();
-
-    // Unregister ex handlers
-    CommandParser.getInstance().unregisterHandlers();
-
-    EditorGroup editorGroup = getEditorIfCreated();
-    if (editorGroup != null) {
-      editorGroup.turnOff();
-    }
     SearchGroup searchGroup = getSearchIfCreated();
     if (searchGroup != null) {
       searchGroup.turnOff();
     }
     VimListenerManager.INSTANCE.turnOff();
     ExEntryPanel.fullReset();
+
+    // Unregister vim actions in command mode
+    RegisterActions.unregisterActions();
+
+    // Unregister ex handlers
+    CommandParser.getInstance().unregisterHandlers();
   }
 
   private boolean stateUpdated = false;
