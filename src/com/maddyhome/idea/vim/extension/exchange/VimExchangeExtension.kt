@@ -49,6 +49,17 @@ import com.maddyhome.idea.vim.helper.StringHelper.stringToKeys
 import com.maddyhome.idea.vim.helper.subMode
 import com.maddyhome.idea.vim.key.OperatorFunction
 
+/**
+ * This emulation misses:
+ *  - `:ExchangeClear` command
+ *  - `g:exchange_no_mappings` variable
+ *  - `g:exchange_indent` variable (?)
+ *  - Default mappings should not be applied if there is a mapping defined in `~/.ideavimrc`.
+ *      This functionality requires rewriting of IdeaVim initialization, so that plugins would be
+ *        loaded after `~/.ideavimrc` is executed (as vim works). But the `if no bindings` can be added even now.
+ *        It just won't work if the binding is defined after `set exchange`.
+ */
+
 class VimExchangeExtension: VimExtension {
   override fun getName() = "exchange"
 
@@ -64,19 +75,23 @@ class VimExchangeExtension: VimExtension {
     putKeyMapping(MappingMode.N, parseKeys("cxx"), owner, parseKeys(EXCHANGE_LINE_CMD), true)
   }
 
-  private companion object {
+  companion object {
     const val EXCHANGE_CMD = "<Plug>(Exchange)"
     const val EXCHANGE_CLEAR_CMD = "<Plug>(ExchangeClear)"
     const val EXCHANGE_LINE_CMD = "<Plug>(ExchangeLine)"
+
     val EXCHANGE_KEY = Key<Exchange>("exchange");
+
     class Exchange(val type: CommandState.SubMode, val start: Mark, val end: Mark, val text: String) {
       private var myHighlighter: RangeHighlighter? = null
       fun setHighlighter(highlighter: RangeHighlighter) {
         myHighlighter = highlighter
       }
+
       fun getHighlighter(): RangeHighlighter? = myHighlighter
 
     }
+
     fun clearExchange(editor: Editor) {
       editor.getUserData(EXCHANGE_KEY)?.getHighlighter()?.let {
         editor.markupModel.removeHighlighter(it)
@@ -104,9 +119,10 @@ class VimExchangeExtension: VimExtension {
   private class VExchangeHandler: VimExtensionHandler {
     override fun execute(editor: Editor, context: DataContext) {
       runWriteAction {
+        val subMode = editor.subMode
         // Leave visual mode to create selection marks
         executeNormal(parseKeys("<Esc>"), editor)
-        Operator(true).apply(editor, context, SelectionType.fromSubMode(editor.subMode))
+        Operator(true).apply(editor, context, SelectionType.fromSubMode(subMode))
       }
     }
   }
@@ -130,8 +146,7 @@ class VimExchangeExtension: VimExtension {
         }
         return editor.markupModel.addRangeHighlighter(
           editor.getMarkOffset(ex.start),
-          // normalize end offset to remain in line on linewise mode
-          EditorHelper.normalizeOffset(editor, ex.end.logicalLine, editor.getMarkOffset(ex.end) + 1, false),
+          (editor.getMarkOffset(ex.end) + 1).coerceAtMost(EditorHelper.getFileSize(editor, true)),
           HighlighterLayer.SELECTION - 1,
           attributes,
           hlArea
